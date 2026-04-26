@@ -140,6 +140,8 @@
 
 **Classificação:** MVP | **Tipo:** FE + DADOS | **Dependências:** Assets legados convertidos
 
+**Nota 24/04/2026:** esta story continua representando áudio contextual a livros e kits. A futura biblioteca geral de `Músicas` passa a ser coberta separadamente pelo delta do CEO.
+
 ### US-015 — Vídeo cenário (material audiovisual simples)
 **Como** usuário, **quero** ver um vídeo relacionado ao recurso (curta animação), **para** reforçar o conteúdo pedagógico.
 
@@ -148,6 +150,8 @@
 - Player responsivo com poster
 
 **Classificação:** MVP | **Tipo:** FE + DADOS | **Dependências:** Assets
+
+**Nota 24/04/2026:** esta story continua representando vídeo contextual a livros e kits. A futura biblioteca geral de `Vídeos` passa a ser coberta separadamente pelo delta do CEO.
 
 ### US-016 — Vídeo acessível (Libras)
 **Como** usuário com necessidade de acessibilidade, **quero** versão em Libras do vídeo, **para** garantir acesso ao conteúdo.
@@ -158,6 +162,8 @@
 
 **Classificação:** PÓS-MVP | **Tipo:** FE + DADOS | **Dependências:** Assets Libras produzidos
 
+**Nota 24/04/2026:** esta story continua representando vídeo acessível contextual a livros e kits. Ela não substitui a futura biblioteca geral de `Vídeos`.
+
 ### US-017 — Vídeo animado IA (desenho)
 **Como** produto, **queremos** exibir vídeos animados gerados (ou importados) para crianças, **para** aumentar engajamento visual.
 
@@ -166,6 +172,8 @@
 - Player com carregamento otimizado
 
 **Classificação:** FUTURO | **Tipo:** FE + DADOS
+
+**Nota 24/04/2026:** esta story continua representando vídeo animado contextual a livros e kits. A futura biblioteca geral de `Vídeos` segue como feature separada.
 
 ---
 
@@ -224,6 +232,78 @@
 - Switch de modo infantil na UI
 
 **Classificação:** FUTURO | **Tipo:** FE + BE
+
+---
+
+## 8. DELTA CEO — 24/04/2026
+
+### DELTA-US-004 — Menu principal por bibliotecas
+**Como** usuário adulto, **quero** navegar por `Livros`, `Vídeos`, `Músicas`, `Formações` e `Materiais`, **para** separar claramente a experiência editorial das bibliotecas gerais.
+
+**Critérios de aceite:**
+- O menu expõe `Livros` com `Coleções` e `Suporte`
+- O menu expõe entradas próprias para `Vídeos`, `Músicas`, `Formações` e `Materiais`
+- Desktop e mobile preservam a mesma arquitetura de navegação
+
+**Classificação:** PÓS-MVP | **Tipo:** FE
+
+### DELTA-US-005 — Biblioteca geral de Vídeos
+**Como** usuário, **quero** acessar uma biblioteca geral de vídeos curados, **para** consumir conteúdo audiovisual mesmo quando ele não estiver vinculado a um livro ou kit específico.
+
+**Critérios de aceite:**
+- Área de `Vídeos` com cards, destaques e busca leve
+- Conteúdo pode existir sem vínculo obrigatório com coleção
+- Quando houver vínculo real com livro ou kit, ele aparece como contexto adicional
+
+**Classificação:** PÓS-MVP | **Tipo:** FE + DADOS
+
+### DELTA-US-006 — Biblioteca geral de Músicas
+**Como** usuário, **quero** acessar uma biblioteca geral de músicas, **para** ouvir conteúdos de forma simples, em uma experiência parecida com um mini Spotify.
+
+**Critérios de aceite:**
+- Área de `Músicas` com curadoria simples e navegação leve
+- Conteúdo pode existir sem vínculo obrigatório com coleção
+- Quando houver vínculo real com livro ou kit, ele aparece como contexto adicional
+
+**Classificação:** PÓS-MVP | **Tipo:** FE + DADOS
+
+### DELTA-US-007 — Formações leves no menu principal
+**Como** usuário adulto, **quero** uma área própria de `Formações`, **para** acessar conteúdos de formação e preparar evoluções futuras para trilhas guiadas.
+
+**Critérios de aceite:**
+- `Formações` existe como entrada de menu independente
+- A primeira versão pode ser simples, com catálogo curto e curadoria direta
+- O desenho da área preserva evolução futura para trilhas e academia leve
+
+**Classificação:** PÓS-MVP | **Tipo:** FE + DADOS
+
+### DELTA-US-008 — Área enxuta de Materiais gerais
+**Como** usuário, **quero** uma área de `Materiais` mais direta e enxuta, **para** acessar conteúdos gerais sem depender da descoberta por coleção.
+
+**Critérios de aceite:**
+- `Materiais` existe como biblioteca geral de consulta direta
+- A área usa poucos filtros e baixa complexidade de navegação
+- O conteúdo pode existir sem vínculo obrigatório com coleção
+
+**Classificação:** PÓS-MVP | **Tipo:** FE + DADOS
+
+### DELTA-US-009 — Relacionamento opcional com livro ou kit
+**Como** equipe de produto, **queremos** que vídeos, músicas e materiais possam existir com ou sem vínculo com livro ou kit, **para** não forçar mapeamento quando ele não fizer sentido editorial.
+
+**Critérios de aceite:**
+- O modelo de dados permite conteúdo geral sem coleção associada
+- Quando houver relação real com livro ou kit, ela fica visível ao usuário
+- A ausência de vínculo não impede publicação nem descoberta do item
+
+**Classificação:** PÓS-MVP | **Tipo:** DADOS + FE
+
+### DELTA-AS-001 — Descoberta simples nas áreas gerais
+**Não queremos** que `Vídeos`, `Músicas` e `Materiais` herdem toda a complexidade de filtros e mapeamentos da área de `Livros`, **para** preservar uma experiência mais simples e curada.
+
+**Critérios de aceite:**
+- As áreas gerais não exigem mapeamento obrigatório com BNCC, CASEL, segmento ou coleção
+- A navegação prioriza curadoria, destaques e busca leve
+- Filtros avançados ficam concentrados na área de `Livros`
 
 ---
 

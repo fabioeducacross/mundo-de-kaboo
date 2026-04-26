@@ -17,6 +17,7 @@ INSERT INTO public.vouchers (code, duration_months, status)
 VALUES
   ('KABOO-1MES-2026', 1, 'active'),
   ('KABOO-LIVR-0001', 3, 'active'),
+  ('KABOO-TEST-0001', 3, 'active'),
   ('KABOO-3MESES-2026', 3, 'active'),
   ('KABOO-6MESES-2026', 6, 'active'),
   ('KABOO-9MESES-2026', 9, 'active'),

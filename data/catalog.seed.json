@@ -17,9 +17,7 @@
             "collection_type": "kit",
             "kit_cover_image": "/mock/covers/kaboo-carta-misteriosa-kit.svg",
             "kit_book_ids": [
-                "5993fc3f-8e1f-4d32-98f8-447676e31a39",
-                "5ff4a457-5cc8-4095-8a2d-f51604bbc7f8",
-                "ce726511-73df-422d-b5fb-b2d0518e164a"
+                "5993fc3f-8e1f-4d32-98f8-447676e31a39"
             ],
             "level": "Fundamental I",
             "segments": [
@@ -113,9 +111,7 @@
             "collection_type": "kit",
             "kit_cover_image": "/mock/covers/mensageiro-cancao-certa-kit.svg",
             "kit_book_ids": [
-                "66627622-235a-43f6-ba4b-35522086165c",
-                "5993fc3f-8e1f-4d32-98f8-447676e31a39",
-                "ce726511-73df-422d-b5fb-b2d0518e164a"
+                "66627622-235a-43f6-ba4b-35522086165c"
             ],
             "level": "Fundamental I",
             "segments": [
@@ -169,8 +165,7 @@
             "collection_type": "kit",
             "kit_cover_image": "/mock/covers/baratinha-baratao-labirinto-eco-kit.svg",
             "kit_book_ids": [
-                "5ff4a457-5cc8-4095-8a2d-f51604bbc7f8",
-                "66627622-235a-43f6-ba4b-35522086165c"
+                "5ff4a457-5cc8-4095-8a2d-f51604bbc7f8"
             ],
             "level": "Fundamental I",
             "color_theme": "#2E4179",
@@ -214,9 +209,7 @@
             "collection_type": "kit",
             "kit_cover_image": "/mock/covers/kaboo-desafio-cores-kit.svg",
             "kit_book_ids": [
-                "5993fc3f-8e1f-4d32-98f8-447676e31a39",
-                "ce726511-73df-422d-b5fb-b2d0518e164a",
-                "66627622-235a-43f6-ba4b-35522086165c"
+                "5993fc3f-8e1f-4d32-98f8-447676e31a39"
             ],
             "level": "Fundamental I",
             "color_theme": "#1D64A1",

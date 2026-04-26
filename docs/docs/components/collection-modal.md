@@ -38,7 +38,7 @@ const isModalOpen =
 
 - **Capa condicional** do item, respeitando `kit_cover_image` quando o formato for kit
 - **Badge de formato** para distinguir `Kit multimodal` e `Livro avulso`
-- **Seção "Livros do Kit"** quando o item tiver `kit_book_ids`, exibindo os livros vinculados em ordem
+- **Seção "Livros do Kit"** apenas quando o kit tiver mais de um livro vinculado
 - **Título e nível escolar**
 - **Tema e objetivos de aprendizagem**
 - **Personagens** da história
@@ -62,9 +62,9 @@ O modal abre imediatamente quando `collectionId` está nos params, mas exibe um 
 
 ## Drill-down interno
 
-- Kits reais usam `kit_book_ids` para listar os livros vinculados dentro do próprio modal.
-- Ao clicar em um livro do kit, o conteúdo do modal troca para o detalhe do livro, sem abrir um segundo modal.
-- O usuário volta para o kit pelo CTA `Voltar ao kit`, mantendo a mesma casca do modal e o mesmo botão de fechar.
+- Kits reais continuam usando `kit_book_ids`, mas a UX agora trata 0 ou 1 vínculo como experiência direta do próprio kit.
+- Quando houver só 1 livro vinculado, o CTA raiz de `Leitura` permanece nos acessos rápidos do kit e não existe drill-down intermediário.
+- O drill-down interno e o CTA `Voltar ao kit` ficam reservados para kits com mais de um livro vinculado.
 
 ## Subcomponentes
 

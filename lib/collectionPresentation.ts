@@ -1,4 +1,4 @@
-import { Collection, CollectionType } from '../types';
+import { Collection, CollectionAsset, CollectionType } from '../types';
 
 type CollectionTypeMeta = {
   type: CollectionType;
@@ -13,6 +13,16 @@ type CollectionPresentationCopy = {
   materialsTitle: string;
   materialsDescription: string;
   materialsEmptyState: string;
+};
+
+type KitLinkedBookState = {
+  linkedBookIdsCount: number;
+  linkedBooksCount: number;
+  loadingLinkedBooks: boolean;
+};
+
+export const normalizeSingleKitBookIds = (value?: string[] | null): string[] => {
+  return Array.from(new Set((value || []).map((id) => id?.trim()).filter(Boolean) as string[])).slice(0, 1);
 };
 
 const COLLECTION_TYPE_META: Record<CollectionType, CollectionTypeMeta> = {
@@ -39,7 +49,14 @@ const normalizeImageUrl = (value?: string | null): string => {
 };
 
 export const getCollectionType = (collection?: Partial<Collection> | null): CollectionType => {
-  return collection?.collection_type === 'kit' ? 'kit' : 'book';
+  if (collection?.collection_type) {
+    return collection.collection_type;
+  }
+
+  const hasLinkedBooks = normalizeSingleKitBookIds(collection?.kit_book_ids).length > 0;
+  const hasKitCover = Boolean(normalizeImageUrl(collection?.kit_cover_image));
+
+  return hasLinkedBooks || hasKitCover ? 'kit' : 'book';
 };
 
 export const getCollectionTypeMeta = (collection?: Partial<Collection> | null): CollectionTypeMeta => {
@@ -58,6 +75,27 @@ export const getCollectionPresentationCopy = (
       : 'Materiais de apoio e recursos complementares deste livro e da sua coleção.',
     materialsEmptyState: 'Nenhum material da coleção disponível.',
   };
+};
+
+export const getKitLinkedBookCount = ({
+  linkedBookIdsCount,
+  linkedBooksCount,
+  loadingLinkedBooks,
+}: KitLinkedBookState): number => {
+  return loadingLinkedBooks ? linkedBookIdsCount : linkedBooksCount;
+};
+
+export const shouldShowKitLinkedBooksPanel = (linkedBookCount: number): boolean => {
+  return linkedBookCount > 1;
+};
+
+export const getVisiblePrimaryCollectionAssets = (
+  primaryAssets: CollectionAsset[],
+  showLinkedBooksPanel: boolean
+): CollectionAsset[] => {
+  return showLinkedBooksPanel
+    ? primaryAssets.filter((asset) => asset.category !== 'reading')
+    : primaryAssets;
 };
 
 export const getCollectionDisplayCover = (collection?: Partial<Collection> | null): string => {

@@ -21,12 +21,13 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { formatAccessDate, getAccessStatusLabel, getProfileAccessStatus } from '../lib/access';
 import { normalizeCharacterLookupKey, resolveCharacterNamesFromIds, syncCollectionCharacters } from '../lib/characters';
 import { COLLECTION_ASSET_META, inferCollectionAssets, syncCollectionWithAssets } from '../lib/collectionAssets';
-import { getCollectionDisplayCover, getCollectionTypeMeta } from '../lib/collectionPresentation';
+import { getCollectionDisplayCover, getCollectionTypeMeta, normalizeSingleKitBookIds } from '../lib/collectionPresentation';
 
 interface AdminCollectionsScreenProps {
   onNavigate: (screen: ScreenName, params?: any) => void;
   onBack: () => void;
   initialTab?: 'collections' | 'users';
+  initialLibraryArea?: 'videos' | 'music' | 'formations' | 'materials';
 }
 
 export interface AdminCollectionsHandle {
@@ -104,7 +105,7 @@ const normalizeAssetTitle = (url: string, fallback: string) => {
 };
 
 const normalizeKitBookIds = (value?: string[] | null): string[] => {
-  return Array.from(new Set((value || []).map((id) => id?.trim()).filter(Boolean) as string[]));
+  return normalizeSingleKitBookIds(value);
 };
 
 const buildCollectionFormData = (collection?: Partial<Collection>): CollectionFormData => {
@@ -186,6 +187,20 @@ const FIXED_MEDIA_SLOTS: FixedMediaSlot[] = [
     descriptionPlaceholder: 'Descreva brevemente o conteúdo do guia.',
   },
 ];
+
+const LIBRARY_AREA_LABEL: Record<NonNullable<AdminCollectionsScreenProps['initialLibraryArea']>, string> = {
+  videos: 'Vídeos',
+  music: 'Músicas',
+  formations: 'Formações',
+  materials: 'Materiais',
+};
+
+const LIBRARY_AREA_PRIMARY_SLOTS: Record<NonNullable<AdminCollectionsScreenProps['initialLibraryArea']>, FixedMediaSlotCategory[]> = {
+  videos: ['animation', 'accessible_video', 'how_to_play', 'video_lesson'],
+  music: ['storytelling'],
+  formations: ['teacher_guide', 'video_lesson'],
+  materials: ['reading'],
+};
 
 // Componente interno para card com efeito 3D
 const Card3DCover: React.FC<{
@@ -308,9 +323,11 @@ const Card3DCover: React.FC<{
   );
 };
 
-export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCollectionsScreenProps>(({ onNavigate, onBack, initialTab }, ref) => {
+export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCollectionsScreenProps>(({ onNavigate, onBack, initialTab, initialLibraryArea }, ref) => {
   // Main tab — driven by initialTab prop (key remount in AdminScreen)
   const mainTab = initialTab || 'collections';
+  const isLibraryAreaMode = Boolean(initialLibraryArea);
+  const defaultCollectionTab: 'identification' | 'media' = isLibraryAreaMode ? 'media' : 'identification';
 
   // Collections state
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -320,7 +337,7 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'identification' | 'media'>('identification');
+  const [activeTab, setActiveTab] = useState<'identification' | 'media'>(defaultCollectionTab);
   const [isSaving, setIsSaving] = useState(false);
   const [availableCharacters, setAvailableCharacters] = useState<Character[]>([]);
 
@@ -371,6 +388,29 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
   const formLevelDropdownRef = useRef<HTMLDivElement>(null);
   const actionsDropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const [formData, setFormData] = useState<CollectionFormData>(buildCollectionFormData());
+
+  const activeLibraryAreaLabel = initialLibraryArea ? LIBRARY_AREA_LABEL[initialLibraryArea] : null;
+
+  useEffect(() => {
+    if (mainTab !== 'collections') {
+      return;
+    }
+
+    setActiveTab(defaultCollectionTab);
+  }, [defaultCollectionTab, mainTab]);
+
+  useEffect(() => {
+    if (mainTab !== 'collections' || !initialLibraryArea) {
+      return;
+    }
+
+    const emptyFormData = buildCollectionFormData();
+    setEditingId(null);
+    setShowCreateForm(true);
+    setFormData(emptyFormData);
+    setOriginalFormData(emptyFormData);
+    setActiveTab('media');
+  }, [initialLibraryArea, mainTab]);
 
   const accessSummary = users.reduce((summary, user) => {
     const status = getProfileAccessStatus(user);
@@ -554,9 +594,7 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
   const toggleKitBookSelection = (bookId: string) => {
     setFormData((currentFormData) => {
       const currentKitBookIds = normalizeKitBookIds(currentFormData.kit_book_ids);
-      const nextKitBookIds = currentKitBookIds.includes(bookId)
-        ? currentKitBookIds.filter((id) => id !== bookId)
-        : [...currentKitBookIds, bookId];
+      const nextKitBookIds = currentKitBookIds.includes(bookId) ? [] : [bookId];
 
       return {
         ...currentFormData,
@@ -600,25 +638,25 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
     const assetsWithoutExtras = formData.collection_assets.filter((asset) => asset.category !== 'extra_material');
 
     const nextExtraAssets = urls.reduce<CollectionAsset[]>((assets, url, index) => {
-        const trimmedUrl = url.trim();
-        if (!trimmedUrl) {
-          return assets;
-        }
-
-        const currentAsset = extraMaterialAssets.find((asset) => asset.url === trimmedUrl);
-
-        assets.push({
-          id: currentAsset?.id || createAssetId('extra_material'),
-          category: 'extra_material' as const,
-          media_type: currentAsset?.media_type || inferAssetMediaTypeFromUrl(trimmedUrl),
-          title: currentAsset?.title?.trim() || normalizeAssetTitle(trimmedUrl, `Material Extra ${index + 1}`),
-          url: trimmedUrl,
-          description: currentAsset?.description?.trim() || null,
-          scope: 'library' as const,
-        });
-
+      const trimmedUrl = url.trim();
+      if (!trimmedUrl) {
         return assets;
-      }, []);
+      }
+
+      const currentAsset = extraMaterialAssets.find((asset) => asset.url === trimmedUrl);
+
+      assets.push({
+        id: currentAsset?.id || createAssetId('extra_material'),
+        category: 'extra_material' as const,
+        media_type: currentAsset?.media_type || inferAssetMediaTypeFromUrl(trimmedUrl),
+        title: currentAsset?.title?.trim() || normalizeAssetTitle(trimmedUrl, `Material Extra ${index + 1}`),
+        url: trimmedUrl,
+        description: currentAsset?.description?.trim() || null,
+        scope: 'library' as const,
+      });
+
+      return assets;
+    }, []);
 
     updateFormWithAssets([...assetsWithoutExtras, ...nextExtraAssets]);
   };
@@ -864,7 +902,7 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
       collection_assets: inferCollectionAssets(collection),
     });
     setEditingId(collection.id);
-    setActiveTab('identification');
+    setActiveTab(defaultCollectionTab);
     setFormData(initialData);
     setOriginalFormData(initialData);
   };
@@ -888,7 +926,7 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
         if (editingId === collectionToDelete) {
           setEditingId(null);
           setShowCreateForm(false);
-          setActiveTab('identification');
+          setActiveTab(defaultCollectionTab);
           resetForm();
         }
         showToast('Coleção excluída com sucesso!', 'success');
@@ -959,7 +997,7 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
       showToast(editingId ? 'Coleção atualizada com sucesso!' : 'Coleção criada com sucesso!', 'success');
       setEditingId(null);
       setShowCreateForm(false);
-      setActiveTab('identification');
+      setActiveTab(defaultCollectionTab);
       resetForm();
       loadCollections();
     } else {
@@ -988,14 +1026,14 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
       setPendingAction(() => () => {
         setEditingId(null);
         setShowCreateForm(false);
-        setActiveTab('identification');
+        setActiveTab(defaultCollectionTab);
         resetForm();
       });
       setShowUnsavedChangesModal(true);
     } else {
       setEditingId(null);
       setShowCreateForm(false);
-      setActiveTab('identification');
+      setActiveTab(defaultCollectionTab);
       resetForm();
     }
   };
@@ -1015,14 +1053,14 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
         setPendingAction(() => () => {
           setEditingId(null);
           setShowCreateForm(false);
-          setActiveTab('identification');
+          setActiveTab(defaultCollectionTab);
           resetForm();
         });
         setShowUnsavedChangesModal(true);
       } else {
         setEditingId(null);
         setShowCreateForm(false);
-        setActiveTab('identification');
+        setActiveTab(defaultCollectionTab);
         resetForm();
       }
     } else {
@@ -1124,18 +1162,20 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
           ) : editingId || showCreateForm ? (
             <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-6 pt-0">
               <div className="max-w-2xl mx-auto">
-                <Tabs
-                  tabs={[
-                    { id: 'identification', label: 'Dados da Coleção' },
-                    { id: 'media', label: 'Arquivos de Mídia' }
-                  ]}
-                  activeTab={activeTab}
-                  onChange={(tabId) => setActiveTab(tabId as any)}
-                />
+                {!isLibraryAreaMode && (
+                  <Tabs
+                    tabs={[
+                      { id: 'identification', label: 'Dados da Coleção' },
+                      { id: 'media', label: 'Arquivos de Mídia' }
+                    ]}
+                    activeTab={activeTab}
+                    onChange={(tabId) => setActiveTab(tabId as any)}
+                  />
+                )}
 
                 <div className="space-y-6">
                   {/* Tab: Dados da Coleção */}
-                  {activeTab === 'identification' && (
+                  {!isLibraryAreaMode && activeTab === 'identification' && (
                     <>
                       {/* Informações de Identificação Title */}
                       <div>
@@ -1223,13 +1263,13 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
                           <div className="rounded-2xl border border-gray-200 p-4 bg-white space-y-3">
                             <div className="flex items-start justify-between gap-3">
                               <div>
-                                <h4 className="text-sm font-bold text-gray-800">Livros do Kit</h4>
+                                <h4 className="text-sm font-bold text-gray-800">Livro do Kit</h4>
                                 <p className="text-xs text-gray-500 mt-1">
-                                  Selecione os livros avulsos que fazem parte deste kit. A ordem de seleção define a ordem de exibição no modal.
+                                  Selecione o livro avulso que faz parte deste kit. Ao escolher outro, ele substitui o vínculo anterior.
                                 </p>
                               </div>
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-[11px] font-black uppercase tracking-[0.12em] border border-amber-200 whitespace-nowrap">
-                                {selectedKitBookIds.length} livro(s)
+                                {selectedKitBookIds.length === 1 ? '1 livro' : '0 livro'}
                               </span>
                             </div>
 
@@ -1241,7 +1281,6 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
                               <div className="space-y-2">
                                 {availableKitBooks.map((book) => {
                                   const isSelected = selectedKitBookIds.includes(book.id);
-                                  const selectedOrder = selectedKitBookIds.indexOf(book.id) + 1;
                                   const displayCoverImage = getCollectionDisplayCover(book) || book.cover_image;
 
                                   return (
@@ -1272,11 +1311,6 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
                                         </div>
 
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                          {isSelected && (
-                                            <span className="w-6 h-6 rounded-full bg-kaboo-primary text-white text-[11px] font-black flex items-center justify-center">
-                                              {selectedOrder}
-                                            </span>
-                                          )}
                                           <span className={`w-6 h-6 rounded-full border flex items-center justify-center ${isSelected
                                             ? 'border-kaboo-primary bg-kaboo-primary text-white'
                                             : 'border-gray-300 bg-white text-transparent'
@@ -1540,14 +1574,28 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
                     <>
                       <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-4">Arquivos de Mídia</h3>
+                        {activeLibraryAreaLabel && (
+                          <div className="rounded-2xl border border-kaboo-primary/20 bg-kaboo-primary/5 px-4 py-3 text-sm text-kaboo-primary mb-4">
+                            <span className="font-bold">Área de cadastro: {activeLibraryAreaLabel}.</span> Os campos destacados são os mais usados para esta biblioteca.
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-4">
                         {FIXED_MEDIA_SLOTS.map((slot) => {
                           const asset = getAssetByCategory(slot.category);
+                          const isPrimaryForArea = Boolean(
+                            initialLibraryArea && LIBRARY_AREA_PRIMARY_SLOTS[initialLibraryArea].includes(slot.category)
+                          );
 
                           return (
-                            <div key={slot.category} className="rounded-2xl border border-gray-200 p-4 space-y-3 bg-white">
+                            <div
+                              key={slot.category}
+                              className={`rounded-2xl border p-4 space-y-3 bg-white ${isPrimaryForArea ? 'border-kaboo-primary/35 bg-kaboo-primary/[0.03]' : 'border-gray-200'}`}
+                            >
+                              {isPrimaryForArea && (
+                                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-kaboo-primary">Prioritário para {activeLibraryAreaLabel}</p>
+                              )}
                               <FileUpload
                                 label={slot.label}
                                 value={asset?.url || ''}
@@ -1564,6 +1612,27 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
                                 collectionId={editingId || undefined}
                                 showAsIcon={true}
                               />
+
+                              <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                  Ou cole um link (YouTube ou arquivo direto)
+                                </label>
+                                <input
+                                  type="url"
+                                  value={asset?.url || ''}
+                                  onChange={(event) => {
+                                    const nextUrl = event.target.value;
+                                    if (!nextUrl.trim()) {
+                                      removeAsset(slot.category);
+                                      return;
+                                    }
+
+                                    setAssetUrl(slot.category, nextUrl);
+                                  }}
+                                  placeholder="https://www.youtube.com/watch?v=..."
+                                  className="w-full bg-gray-50 border-none rounded-2xl p-4 text-gray-800 focus:ring-2 focus:ring-kaboo-primary outline-none"
+                                />
+                              </div>
 
                               {slot.allowMetadata && (
                                 <div className="grid gap-3 md:grid-cols-2">
@@ -1596,6 +1665,9 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
                         })}
 
                         <div className="rounded-2xl border border-gray-200 p-4 bg-white">
+                          {initialLibraryArea === 'materials' && (
+                            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-kaboo-primary mb-3">Prioritário para Materiais</p>
+                          )}
                           <MultipleFileUpload
                             label="Materiais da Coleção"
                             value={extraMaterialAssets.map((asset) => asset.url)}
@@ -1785,6 +1857,7 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
                             setPendingAction(() => () => {
                               const emptyFormData = buildCollectionFormData();
                               setShowCreateForm(true);
+                              setActiveTab(defaultCollectionTab);
                               setFormData(emptyFormData);
                               setOriginalFormData(emptyFormData);
                             });
@@ -1792,6 +1865,7 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
                           } else {
                             const emptyFormData = buildCollectionFormData();
                             setShowCreateForm(true);
+                            setActiveTab(defaultCollectionTab);
                             setFormData(emptyFormData);
                             setOriginalFormData(emptyFormData);
                           }
@@ -1901,7 +1975,7 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
                                     collection_assets: inferCollectionAssets(collection),
                                   });
                                   setEditingId(collection.id);
-                                  setActiveTab('identification');
+                                  setActiveTab(defaultCollectionTab);
                                   setFormData(initialData);
                                   setOriginalFormData(initialData);
                                 });
@@ -1916,14 +1990,14 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
                               const displayCoverImage = getCollectionDisplayCover(collection) || collection.cover_image;
 
                               return (
-                              <Card3DCover
-                                imageUrl={displayCoverImage}
-                                alt={collection.title}
-                                level={collection.level}
-                                collectionTypeLabel={collectionTypeMeta.shortLabel}
-                                collectionTypeBadgeClassName={collectionTypeMeta.coverClassName}
-                                actionsButton={actionsButton}
-                              />
+                                <Card3DCover
+                                  imageUrl={displayCoverImage}
+                                  alt={collection.title}
+                                  level={collection.level}
+                                  collectionTypeLabel={collectionTypeMeta.shortLabel}
+                                  collectionTypeBadgeClassName={collectionTypeMeta.coverClassName}
+                                  actionsButton={actionsButton}
+                                />
                               );
                             })()}
 
@@ -2285,70 +2359,70 @@ export const AdminCollectionsScreen = forwardRef<AdminCollectionsHandle, AdminCo
                       const isWaitingFirstAccess = !user.last_sign_in_at && Boolean(user.invited_at);
 
                       return (
-                    <div
-                      key={user.id}
-                      className={`rounded-2xl p-4 border transition-all ${isWaitingFirstAccess
-                        ? 'bg-gray-50/80 border-gray-300 border-dashed opacity-80'
-                        : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-bold text-gray-800 text-base mb-1">
-                            {user.full_name || 'Sem nome'}
-                          </h3>
-                          <p className="text-sm text-gray-600 mb-1">{user.email}</p>
-                          <p className="text-xs text-gray-500">
-                            Último acesso: {formatAdminDateTime(user.last_sign_in_at)}
-                          </p>
-                          {user.invited_at && !user.last_sign_in_at && (
-                            <p className="text-xs text-gray-400 mt-1">
-                              Convite enviado em {formatAdminDateTime(user.invited_at)}
-                            </p>
-                          )}
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${getAccessBadgeClasses(user)}`}>
-                              {getAccessStatusLabel(getProfileAccessStatus(user))}
-                            </span>
-                            <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${authBadge.classes}`}>
-                              {authBadge.label}
-                            </span>
-                            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
-                              Vigencia: {formatAccessDate(user.access_expires_at)}
-                            </span>
+                        <div
+                          key={user.id}
+                          className={`rounded-2xl p-4 border transition-all ${isWaitingFirstAccess
+                            ? 'bg-gray-50/80 border-gray-300 border-dashed opacity-80'
+                            : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-bold text-gray-800 text-base mb-1">
+                                {user.full_name || 'Sem nome'}
+                              </h3>
+                              <p className="text-sm text-gray-600 mb-1">{user.email}</p>
+                              <p className="text-xs text-gray-500">
+                                Último acesso: {formatAdminDateTime(user.last_sign_in_at)}
+                              </p>
+                              {user.invited_at && !user.last_sign_in_at && (
+                                <p className="text-xs text-gray-400 mt-1">
+                                  Convite enviado em {formatAdminDateTime(user.invited_at)}
+                                </p>
+                              )}
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${getAccessBadgeClasses(user)}`}>
+                                  {getAccessStatusLabel(getProfileAccessStatus(user))}
+                                </span>
+                                <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${authBadge.classes}`}>
+                                  {authBadge.label}
+                                </span>
+                                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
+                                  Vigencia: {formatAccessDate(user.access_expires_at)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="ml-4 flex flex-col items-end gap-2">
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold ${user.role === 'admin'
+                                ? 'bg-purple-100 text-purple-700'
+                                : user.role === 'editor'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-gray-100 text-gray-700'
+                                }`}>
+                                {user.role === 'admin' ? 'Admin' :
+                                  user.role === 'editor' ? 'Editor' : 'Visualizador'}
+                              </span>
+                              {isAdminUser && (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleEditUserOpen(user)}
+                                    className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 hover:text-kaboo-primary transition-colors"
+                                    title="Editar usuário"
+                                  >
+                                    <Icons.Edit size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUserClick(user)}
+                                    className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                                    title="Excluir usuário"
+                                  >
+                                    <Icons.Trash2 size={16} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <div className="ml-4 flex flex-col items-end gap-2">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${user.role === 'admin'
-                            ? 'bg-purple-100 text-purple-700'
-                            : user.role === 'editor'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-gray-100 text-gray-700'
-                            }`}>
-                            {user.role === 'admin' ? 'Admin' :
-                              user.role === 'editor' ? 'Editor' : 'Visualizador'}
-                          </span>
-                          {isAdminUser && (
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => handleEditUserOpen(user)}
-                                className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 hover:text-kaboo-primary transition-colors"
-                                title="Editar usuário"
-                              >
-                                <Icons.Edit size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteUserClick(user)}
-                                className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
-                                title="Excluir usuário"
-                              >
-                                <Icons.Trash2 size={16} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
                       );
                     })()
                   ))}

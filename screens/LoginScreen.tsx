@@ -533,8 +533,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate, onAuthSucc
 
         {/* ─── DIRECT LOGIN (já tenho conta) ─── */}
         {step === 'login' && (
-          <div className="flex flex-col flex-1 px-6 pt-4 pb-6 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="mb-5 flex justify-center">
+          <div className="flex min-h-0 flex-col flex-1 overflow-y-auto no-scrollbar px-6 pt-5 pb-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="mb-6 flex justify-center pt-1">
               <img src={LOGO_URL} alt="Mundo de Kaboo" className="h-14 w-auto object-contain" />
             </div>
             <h2 className="text-xl font-bold text-gray-800 mb-1">Bem-vindo de volta!</h2>
@@ -596,7 +596,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate, onAuthSucc
               </button>
             </div>
 
-            <div className="mt-auto space-y-4 pt-6">
+            <div className="mt-auto space-y-4 pt-8">
               <div className="rounded-3xl border border-kaboo-primary/15 bg-gradient-to-br from-kaboo-primary/[0.08] via-white to-white p-4 text-left shadow-sm">
                 <div className="flex items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-kaboo-primary shadow-sm ring-1 ring-kaboo-primary/10">

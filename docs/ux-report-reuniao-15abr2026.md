@@ -132,11 +132,11 @@
 
 ### 2.11 Kit real no modal
 
-- **Modelo mínimo**: `kit_book_ids` como lista ordenada de ids de livros vinculados ao kit.
-- **CMS**: o cadastro do kit continua no mesmo formulário da coleção, com seletor de livros avulsos existentes e capa própria do kit.
-- **Detalhe do kit**: a tela do modal passa a exibir a seção `Livros do Kit` entre o resumo e os recursos multimídia.
-- **Interação**: tocar em um livro do kit substitui o conteúdo do modal pelo detalhe do livro, sem abrir modal dentro de modal.
-- **Regra de clareza**: quando um kit já lista seus livros, o CTA raiz de `Leitura` não deve competir com essa seção; a leitura passa a acontecer pelo livro escolhido.
+- **Modelo mínimo**: `kit_book_ids` permanece como campo de vínculo, mas a regra operacional atual limita o kit a 1 livro por vez.
+- **CMS**: o cadastro do kit continua no mesmo formulário da coleção, com seleção única de livro avulso existente e capa própria do kit.
+- **Detalhe do kit**: com 0 ou 1 livro vinculado, o modal mantém `Leitura` nos acessos rápidos do kit; a seção `Livros do Kit` vira exceção para kits com mais de um vínculo.
+- **Interação**: o drill-down interno continua disponível, mas só para cenários multi-livro.
+- **Regra de clareza**: em kits 1:1, `Leitura` pertence ao próprio kit; quando houver múltiplos livros, a leitura passa a acontecer pelo livro escolhido.
 
 ---
 

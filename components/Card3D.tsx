@@ -165,7 +165,7 @@ export const Card3D: React.FC<Card3DProps> = ({ collection, onCollectionClick, l
     <div
       key={collection.id}
       onClick={() => onCollectionClick(collection)}
-      className="cursor-pointer active:scale-95 transition-transform touch-manipulation flex flex-col w-full"
+      className="cursor-pointer active:scale-95 transition-transform touch-manipulation flex h-full flex-col w-full"
       style={{
         touchAction: 'manipulation',
       }}

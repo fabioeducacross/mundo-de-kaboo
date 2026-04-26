@@ -1,6 +1,6 @@
 # Plano de Validação QA — Mundo de Kaboo v1.2
 
-> Última atualização: 20/04/2026
+> Última atualização: 23/04/2026
 > Objetivo: validar o conjunto de entregas marcadas como v1.2 e garantir estabilidade para demonstração controlada.
 
 ## 1. Objetivos da rodada
@@ -15,17 +15,20 @@
 - `dev` local com seed atualizado (`catalog.seed.json`) — recomendado para testes manuais.
 - `staging` (se disponível) com Supabase de homologação.
 - Dados de teste disponíveis em `data/` (bncc-lookup.json, casel-lookup.json, catalog.seed.json).
+- Código previsível para QA/homologação: `KABOO-TEST-0001`.
 
 ## 3. Casos de teste críticos (smoke)
 
 1. Auth: signUp com e-mail, login, recuperar senha (quando implementado).
-2. Resgate voucher: criar lote local, exportar CSV, usar código no fluxo de resgate, validar `user_content_grant` criado.
+2. Resgate voucher: usar `KABOO-TEST-0001` no fluxo de resgate e validar a criação do acesso liberado no mock local e/ou no ambiente de homologação.
 3. Home: aplicar filtro por segmento e busca textual; validar resultados e persistência de chips.
-4. Detalhe: abrir coleção com múltiplos recursos, verificar botões dinâmicos (Ler, Ouvir, Assistir, Assistir Acessível), confirmar que botões sem arquivo não aparecem.
-5. Flipbook: abrir PDF, usar zoom e modo texto; alternar entre páginas, testar acessibilidade básica (tab navigation).
-6. Player áudio: tocar/pausar/seek, validar que o player não trava em mobile.
-7. Export admin: gerar CSV/Excel de lote e abrir no Excel/LibreOffice; validar colunas obrigatórias.
-8. Auditoria: checar registros de ativação e consumo no endpoint de auditoria.
+4. Detalhe do kit 1:1: abrir um kit com 0 ou 1 livro vinculado e confirmar `Leitura` + `Materiais da Coleção`, sem `Livros do Kit` nem `Voltar ao kit`.
+5. Detalhe do kit multi-livro: em fixture controlada, cache preparado ou ambiente que ainda exponha múltiplos vínculos, validar que `Livros do Kit` e `Voltar ao kit` aparecem e que o drill-down interno continua funcional.
+6. CMS/admin de kits: editar um kit, selecionar um livro, trocar para outro e confirmar que o vínculo anterior é substituído em vez de acumulado.
+7. Flipbook: abrir PDF, usar zoom e modo texto; alternar entre páginas, testar acessibilidade básica (tab navigation).
+8. Player áudio: tocar/pausar/seek, validar que o player não trava em mobile.
+9. Export admin: gerar CSV/Excel de lote e abrir no Excel/LibreOffice; validar colunas obrigatórias.
+10. Auditoria: checar registros de ativação e consumo no endpoint de auditoria.
 
 ## 4. Testes exploratórios
 
@@ -43,6 +46,8 @@
 
 - [ ] Merge `feature/invite-flow` concluído e build aprovado.
 - [ ] Seed de demonstração atualizado com 16 coleções e assets.
+- [ ] Voucher `KABOO-TEST-0001` validado em dev e, quando aplicável, em homologação remota.
+- [ ] Regra de 1 livro por kit validada no CMS/admin e no modal público.
 - [ ] Export de lote de voucher testado e CSV validado.
 - [ ] QA smoke completo com pass em dev local.
 
@@ -50,5 +55,3 @@
 
 - Para testes locais, use `npm run start` em `mundo-de-kaboo-main/docs` para validar docs e instruções de QA.
 - Usar `npm run dev` no front-end principal para validar comportamentos de runtime.
-
-*** End Patch
