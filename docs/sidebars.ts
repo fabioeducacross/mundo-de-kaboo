@@ -96,6 +96,10 @@ const sidebars: SidebarsConfig = {
       items: [
         'roadmap/index',
         'roadmap/roadmap-central-coruja-v1.2',
+        'roadmap/plano-execucao-mini-youtube-spotify',
+        'roadmap/especificacao-arquitetura-mini-youtube-spotify',
+        'roadmap/especificacao-ux-ui-mini-youtube-spotify',
+        'roadmap/backlog-executavel-mini-youtube-spotify',
         'roadmap/consolidado-backlog-reuniao-15abr2026',
         'roadmap/backlog-central-coruja-15abr2026',
         'roadmap/prd-vouchers-por-conteudo',

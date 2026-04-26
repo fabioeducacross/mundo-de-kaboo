@@ -1,0 +1,811 @@
+From d4ca2f32fd6e92dd2ccb7d927dfcdf144608dda4 Mon Sep 17 00:00:00 2001
+From: fabioeducacross <fabioeducacross@users.noreply.github.com>
+Date: Tue, 21 Apr 2026 09:56:31 -0300
+Subject: [PATCH] feat: add roadmap section and related documents for Central
+ Coruja project
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Introduced a new "🗺️ Roadmap" category in sidebars for better navigation.
+- Added backlog document from the meeting on 15/04/2026 detailing user stories and requirements.
+- Created a consolidated backlog document summarizing the meeting outcomes and additional deltas.
+- Developed a roadmap index page to centralize all roadmap-related documents.
+- Implemented a PRD for managing vouchers by content, outlining objectives, technical vision, and API endpoints.
+- Established a QA validation plan for version 1.2 to ensure stability and functionality.
+- Updated roadmap document reflecting the current state and future phases of the Central Coruja project.
+---
+ .../backlog-central-coruja-15abr2026.md       | 230 ++++++++++++++++++
+ .../consolidado-backlog-reuniao-15abr2026.md  | 139 +++++++++++
+ docs/docs/roadmap/index.md                    |  11 +
+ .../docs/roadmap/prd-vouchers-por-conteudo.md | 116 +++++++++
+ docs/docs/roadmap/qa-validation-plan-v1.2.md  |  54 ++++
+ .../roadmap/roadmap-central-coruja-v1.2.md    | 165 +++++++++++++
+ docs/sidebars.ts                              |  12 +
+ 7 files changed, 727 insertions(+)
+ create mode 100644 docs/docs/roadmap/backlog-central-coruja-15abr2026.md
+ create mode 100644 docs/docs/roadmap/consolidado-backlog-reuniao-15abr2026.md
+ create mode 100644 docs/docs/roadmap/index.md
+ create mode 100644 docs/docs/roadmap/prd-vouchers-por-conteudo.md
+ create mode 100644 docs/docs/roadmap/qa-validation-plan-v1.2.md
+ create mode 100644 docs/docs/roadmap/roadmap-central-coruja-v1.2.md
+
+diff --git a/docs/docs/roadmap/backlog-central-coruja-15abr2026.md b/docs/docs/roadmap/backlog-central-coruja-15abr2026.md
+new file mode 100644
+index 0000000..f8cc84a
+--- /dev/null
++++ b/docs/docs/roadmap/backlog-central-coruja-15abr2026.md
+@@ -0,0 +1,230 @@
++# Backlog Central Coruja — Extração da Reunião 15/04/2026
++
++> Gerado por: PO Agent (Pax) em 18/04/2026
++> Fonte: Transcrição reunião 15/04/2026 (Gotardo, Cortez, Teodoro, Alves, Fujii, Rossato)
++> Projeto: Central Coruja (white label Cabu) — React + TS + Vite + Supabase
++
++---
++
++## Legenda
++
++| Sigla | Significado |
++|-------|-------------|
++| MVP | Mínimo viável para lançamento |
++| PÓS-MVP | Necessário logo após lançamento |
++| FUTURO | Roadmap posterior, não bloqueia lançamento |
++| FE | Frontend |
++| BE | Backend |
++| INFRA | Infraestrutura / DevOps |
++| DESIGN | UI/UX Design |
++| DADOS | Modelagem de dados / seed / migração |
++
++---
++
++## 1. INFRAESTRUTURA E WHITE LABEL
++
++### US-001 — Separação de infra Central Coruja
++**Como** operador da Empatia, **quero** que a Central Coruja tenha servidor, banco de dados e autenticação Supabase completamente separados da Educa Cross, **para** garantir isolamento de dados, compliance e independência operacional.
++
++**Critérios de aceite:**
++- Projeto Supabase dedicado (não compartilhado com Educa Cross)
++- Domínio/subdomínio próprio (ex: centralcoruja.com.br)
++- Variáveis de ambiente apontando para projeto Supabase separado
++- Nenhuma referência direta a endpoints da Educa Cross no runtime
++
++**Classificação:** MVP | **Tipo:** INFRA | **Dependências:** Nenhuma
++
++---
++
++### US-002 — Conta de desenvolvedor Empatia nas lojas
++**Como** operador da Empatia, **quero** registrar uma conta de desenvolvedor da Empatia nas lojas Google Play e Apple App Store, **para** publicar a Central Coruja separada da conta Educa Cross.
++
++**Critérios de aceite:**
++- Conta Google Play Console da Empatia criada e verificada
++- Conta Apple Developer da Empatia criada e verificada
++- Decisão documentada: se white labels precisarem ficar na mesma conta (guideline lojas), usar a conta Empatia como pior cenário
++- App listing reservado com nome "Central Coruja"
++
++**Classificação:** MVP | **Tipo:** INFRA | **Dependências:** Nenhuma
++**Responsáveis mencionados:** Maxwell Cortez, Douglas Rossato, Rafael Fujii
++
++---
++
++### US-003 — White label engine
++**Como** desenvolvedor, **quero** que o app suporte theming e branding via configuração (logo, cores, nome, domínio), **para** que o mesmo codebase sirva Cabu e Central Coruja sem fork.
++
++**Critérios de aceite:**
++- Configuração de branding (logo, nome do app, favicon, cores primárias) via variáveis de ambiente ou arquivo de config
++- Build de produção renderiza marca Central Coruja por padrão
++- Nenhum hardcode de "Cabu" visível para o usuário final na build Central Coruja
++
++**Classificação:** MVP | **Tipo:** FE + INFRA | **Dependências:** Nenhuma
++
++---
++
++## 2. AUTENTICAÇÃO E CONTA
++
++### US-005 — Cadastro com e-mail e senha
++**Como** usuário adulto, **quero** me cadastrar com e-mail e senha, **para** acessar o conteúdo protegido por voucher.
++
++**Critérios de aceite:**
++- Formulário de signUp com validação de e-mail
++- Fluxo de confirmação por e-mail (quando ativo no Supabase)
++- Tratamento de caso: usuário criado sem sessão quando confirmação por e-mail ativada (UX: tela "Confirme seu e-mail")
++
++**Classificação:** MVP | **Tipo:** FE + BE | **Dependências:** Supabase
++
++### US-006 — CPF opcional para compliance ECA
++**Como** produto, **queremos** coletar CPF opcional para validar conformidade com ECA em usos futuros.
++
++**Critérios de aceite:**
++- Campo CPF opcional no cadastro
++- Validação de formato local (pt-BR)
++- Não bloqueia cadastro quando ausente
++
++**Classificação:** PÓS-MVP | **Tipo:** FE + BE | **Dependências:** Consulta legal finalizada
++
++---
++
++## 3. VOUCHERS
++
++### US-009 — Voucher com duração configurável (1–12 meses)
++**Como** administrador, **quero** emitir vouchers com duração de 1 a 12 meses, **para** vender códigos com validade controlada.
++
++**Critérios de aceite:**
++- Campo `duration_months` no admin (1..12)
++- Cálculo de validade e expiração no backend e exibição no admin
++- Lote com `max_quantity` e opção de exportar em CSV/Excel
++
++**Classificação:** MVP | **Tipo:** FE + BE | **Dependências:** Migration no Supabase (voucher_model)
++
++### US-010 — Assinatura digital pós-voucher
++**Como** operador, **quero** que o usuário possa assinar digitalmente um termo após ativar um voucher, **para** garantir auditoria e responsabilidade.
++
++**Critérios de aceite:**
++- Fluxo de aceite com timestamp e IP (armazenado no audit log)
++- Termo texto configurável no admin
++
++**Classificação:** PÓS-MVP | **Tipo:** FE + BE | **Dependências:** Legal review
++
++---
++
++## 4. CATALOGO, COLEÇÕES E RECURSOS
++
++### US-011 — Distinção Kit vs Livro na vitrine
++**Como** usuário, **quero** identificar rapidamente se uma coleção é um kit (multicase) ou um livro único, **para** entender se há vários recursos embutidos.
++
++**Critérios de aceite:**
++- Campo `collection_type: 'kit' | 'book'` no seed
++- Badge visual na vitrine e no detalhe
++- Modal de kit lista os itens que compõem o kit
++
++**Classificação:** MVP | **Tipo:** FE + DADOS | **Dependências:** Seed atualizado
++
++### US-013 — Leitor (Flipbook) — Modo leitura
++**Como** usuário, **quero** abrir o flipbook e ler as páginas com zoom e rolagem, **para** consumir conteúdos com layout paginado.
++
++**Critérios de aceite:**
++- Navegação página a página (prev/next)
++- Zoom e acessibilidade básica
++- Toggle entre modo texto (reflow) e modo página
++
++**Classificação:** MVP | **Tipo:** FE | **Dependências:** Assets PDF legível
++
++### US-014 — Contação de história (áudio por recurso)
++**Como** usuário, **quero** ouvir a contação de uma história atrelada a um recurso, **para** uma experiência multimodal.
++
++**Critérios de aceite:**
++- Player de áudio embutido no detalhe com play/pause/seek
++- Metadados do áudio no asset
++
++**Classificação:** MVP | **Tipo:** FE + DADOS | **Dependências:** Assets legados convertidos
++
++### US-015 — Vídeo cenário (material audiovisual simples)
++**Como** usuário, **quero** ver um vídeo relacionado ao recurso (curta animação), **para** reforçar o conteúdo pedagógico.
++
++**Critérios de aceite:**
++- Campo `video_url` no asset/collection
++- Player responsivo com poster
++
++**Classificação:** MVP | **Tipo:** FE + DADOS | **Dependências:** Assets
++
++### US-016 — Vídeo acessível (Libras)
++**Como** usuário com necessidade de acessibilidade, **quero** versão em Libras do vídeo, **para** garantir acesso ao conteúdo.
++
++**Critérios de aceite:**
++- Campo `accessible_video_url` no asset/collection
++- Player alterna entre legendas/versão Libras quando disponível
++
++**Classificação:** PÓS-MVP | **Tipo:** FE + DADOS | **Dependências:** Assets Libras produzidos
++
++### US-017 — Vídeo animado IA (desenho)
++**Como** produto, **queremos** exibir vídeos animados gerados (ou importados) para crianças, **para** aumentar engajamento visual.
++
++**Critérios de aceite:**
++- Campo `animated_video_url` no asset
++- Player com carregamento otimizado
++
++**Classificação:** FUTURO | **Tipo:** FE + DADOS
++
++---
++
++## 5. TAXONOMIA E MAPEAMENTOS
++
++### US-022 — BNCC agregado (tooltip rico)
++**Como** professor, **quero** ver a descrição completa do código BNCC ao tocar/hover no chip, **para** entender como o recurso se alinha ao currículo.
++
++**Critérios de aceite:**
++- `data/bncc-lookup.json` com chave `code -> description` disponível
++- Tooltip/popover com título, competência e pequena explicação
++- Mobile: bottom-sheet para o mesmo conteúdo
++
++**Classificação:** MVP | **Tipo:** FE + DADOS | **Dependências:** JSON BNCC
++
++### US-024 — Outros mapeamentos (CASEL, ODS)
++**Como** equipe de conteúdo, **queremos** mapeamentos complementares (CASEL, ODS), **para** enriquecer metadados pedagógicos.
++
++**Critérios de aceite:**
++- `data/casel-lookup.json` e `data/ods-lookup.json` (se aplicável)
++- Chips com tooltip idêntico ao BNCC
++
++**Classificação:** MVP | **Tipo:** FE + DADOS
++
++---
++
++## 6. DESCUBERTA E FILTROS
++
++### US-025 — Filtro por ano escolar (chip)
++**Como** usuário, **quero** filtrar por ano escolar rapidamente, **para** encontrar conteúdos adequados ao ano.
++
++**Critérios de aceite:**
++- Chip de ano escolar persistente na home
++- Compatibilidade com busca textual
++
++**Classificação:** PÓS-MVP | **Tipo:** FE
++
++### US-026 — Busca unificada na home
++**Como** usuário, **quero** uma barra de busca que funcione junto com os chips e filtros, **para** encontrar conteúdo sem navegar por várias telas.
++
++**Critérios de aceite:**
++- Barra de busca inline na HomeScreen
++- Resultados filtrados atualizam a grade em tempo real
++
++**Classificação:** MVP | **Tipo:** FE
++
++---
++
++## 7. OUTROS
++
++### US-030 — Perfil infantil (fluxo de cadastro de criança)
++**Como** adulto, **quero** cadastrar um perfil infantil associado ao meu, **para** personalizar recomendacoes.
++
++**Critérios de aceite:**
++- Perfil infantil com nome, idade e avatar
++- Switch de modo infantil na UI
++
++**Classificação:** FUTURO | **Tipo:** FE + BE
++
++---
++
++*Arquivos complementares e mapeamentos estão documentados em `docs/` e no `consolidado-backlog-reuniao-15abr2026.md`.*
+diff --git a/docs/docs/roadmap/consolidado-backlog-reuniao-15abr2026.md b/docs/docs/roadmap/consolidado-backlog-reuniao-15abr2026.md
+new file mode 100644
+index 0000000..397136f
+--- /dev/null
++++ b/docs/docs/roadmap/consolidado-backlog-reuniao-15abr2026.md
+@@ -0,0 +1,139 @@
++# Consolidado Final: Reunião 15/04/2026 + Delta Complementar 18/04/2026
++
++> **Objetivo**: absorção exaustiva dos requisitos da reunião e dos deltas complementares posteriores, cruzamento com o código atual, e distribuição em demandas priorizadas.
++>
++> **Agentes consultados**: PO (Pax), UX (Uma), Analyst (Atlas), PM (Bob)
++>
++> **Data**: 18/04/2026 | **Confiança**: 95%
++
++---
++
++## 1. Cobertura — Nada escapou?
++
++| Tópico da reunião | Coberto? | Onde |
++|:---|:---:|:---|
++| White label Central Coruja | ✅ | US-001, US-003 |
++| Infra separada (servidor/banco) | ✅ | US-001, AR-002 |
++| Conta Empatia nas lojas | ✅ | US-002 |
++| Cadastro e-mail + senha | ✅ | US-005 |
++| CPF (ECA digital) | ✅ | US-006 |
++| Público adulto (familiar/educador) sem turma | ✅ | US-007, AS-002 |
++| Coleção = kit vs livro na vitrine | ✅ | US-011, US-012 |
++| Ler (flipbook) | ✅ | US-013 (já implementado) |
++| Ouvir (contação de história em áudio) | ✅ | US-014 (já implementado, label parcial) |
++| Assistir (vídeo cenário) | ✅ | US-015 (já implementado, label parcial) |
++| Assistir Acessível (Libras) | ✅ | US-016 (ausente) |
++| Assistir Animado/IA (desenho) | ✅ | US-017 (ausente) |
++| Labels descritivos | ✅ | US-018, AS-006 |
++| Marcação de página (bookmark) | ✅ | US-019 (futuro) |
++| Materiais por componente | ✅ | US-020 (já implementado) |
++| Materiais genéricos (Central/coleção) | ✅ | US-021 (ausente) |
++| BNCC tooltip rico | ✅ | US-022, US-023 |
++| Outros mapeamentos (CASEL, ODS) descritivos | ✅ | US-024 |
++| Filtro por ano escolar | ✅ | US-025 |
++| Busca unificada na home | ✅ | US-026 (já implementado) |
++| Filtro por personagem com fotos | ✅ | US-027 |
++| Busca dentro de coleção | ✅ | US-028 |
++| Voucher 1-12 meses | ✅ | US-009 (já implementado) |
++| Assinatura digital pós-voucher | ✅ | US-010 |
++| App mobile publicado nas lojas | ✅ | US-004 |
++| Gamificação leve adulto | ✅ | US-029 |
++| Perfil infantil (adulto cadastra criança) | ✅ | US-030, US-031, US-032, US-033 |
++| Interface infantil simplificada | ✅ | US-032 |
++| Academia/formação professor | ✅ | US-034, US-035 |
++| Login com Educa Cross (SSO futuro) | ✅ | US-008 |
++| Benchmark app Edu | ✅ | Next steps (Fabio action item) |
++| E-mail de ajustes (Mario → Fabio) | ✅ | Next steps (operacional) |
++| Contação áudio ≠ audiodescrição por página | ✅ | AS-005 |
++| Netflix de conteúdo extra (sem jogos, turmas) | ✅ | AS-001, AS-002 |
++| Backoffice BNCC simples (sem CMS complexo) | ✅ | AS-004 |
++| Publicação white label mesma conta (guideline) | ✅ | US-002 nota |
++
++**Base da reunião**: 35 user stories + 6 anti-stories + 4 requisitos de arquitetura + 4 action items operacionais.
++
++**Após o delta complementar de 18/04**: 3 novas delta stories, 11 refinamentos sobre stories existentes e 1 falso positivo puro já implementado.
++
++---
++
++## 1A. Delta Complementar — 18/04/2026
++
++> **Progresso geral do delta: 100% (15/15 itens resolvidos)**
++
++| Novo ponto | Status | ISS | Consolidação |
++|:---|:---:|:---:|:---|
++| Campo para inserir voucher | ✅ 100% | — | Já implementado antes do delta |
++| Admin vouchers com usuário, e-mail e data de ativação | ✅ 100% | ISS-09 | `consumed_by_name` e `consumed_by_email` no detalhe do código e nas exportações |
++| Exportar Excel para gráfica | ✅ 100% | ISS-08 | Botão "Exportar Excel" via SheetJS ao lado do CSV existente |
++| Teto de vouchers em 12 meses | ✅ 100% | ISS-01 | `MAX_CUSTOM_DURATION_MONTHS` reduzido de 120 para 12 |
++| Multissegmentos | ✅ 100% | ISS-10 | `segments[]` + `primary_segment` em types, mock, CMS multi-select e card |
++| Renomear `nível` para `segmento` | ✅ 100% | ISS-03 | `formatSegmentLabel()` em constants, aplicado em toda a UI |
++| Renomear `Fundamental I` para `E.F. Anos Iniciais` | ✅ 100% | ISS-04 | Mesmo helper, todas as telas atualizadas |
++| Sinopse | ✅ 100% | ISS-06 | `synopsis` em types, mock, detalhe público e CMS admin |
++| Ativos multimídia tipados: contação, animação, como jogar, videoaula | ✅ 100% | ISS-14 | `collection_assets` tipado com slots fixos no CMS, sincronização com campos legados e CTAs dinâmicos no detalhe |
++| PDF de orientações para o professor | ✅ 100% | ISS-14 | Ativo dedicado `teacher_guide` no CMS e na biblioteca estruturada |
++| Ocultar recurso sem arquivo | ✅ 100% | ISS-02 | Botões condicionais + flex wrap adaptativo no detalhe |
++| Leitor com modo texto e zoom acessível | ✅ 100% | ISS-13 | Toggle modo texto no leitor, zoom existente preservado |
++| Ordenar coleção por ano escolar | ✅ 100% | ISS-07 | Sort por `age_grade` com chip toggle na home |
++| Cadastro BNCC estruturado pela planilha | ✅ 100% | ISS-11 | 1397 skills extraídas para JSON, tooltip rico no detalhe |
++| Página Materiais Extras estruturados | ✅ 100% | ISS-15 | Biblioteca estruturada por categoria, tipo, descrição, preview e download, deduplicando assets e recursos legados |
++| Página Personagens | ✅ 100% | ISS-12 | CharactersScreen com 8 personagens, rota, navegação e link no menu |
++
++**Status líquido atualizado**: 15 itens resolvidos (✅), 0 itens parciais e 0 ausentes. O delta complementar de 18/04 está totalmente absorvido no produto e na documentação.
++
++---
++
++## 2. Matriz de Status (Analyst) — Atualizada 18/04/2026
++
++| Status | Qtd | IDs |
++|:---|:---:|:---|
++| ✅ Implementado | 17 | Ler, Ouvir, Assistir, Materiais/componente, Voucher, Infra separada, Busca unificada, PWA, Auth, Labels descritivos, BNCC tooltip rico, Segmentos, Sinopse, Personagens, Modo texto, Ativos tipados, Biblioteca estruturada de materiais |
++| 🟡 Parcial | 2 | CASEL hover, Filtro ano escolar (sort ok, filtro avançado pendente) |
++| 🔴 Ausente | 11 | Libras, Animado/IA, Academia, Kit vs Livro, Assinatura digital, CPF, App nativo, Conta lojas, Gamificação, Perfil infantil, OAuth |
++
++**Nota**: a matriz acima cobre a extração base da reunião. O delta complementar de 18/04 está consolidado na seção **1A** para evitar contagem dupla em itens como vouchers, BNCC, materiais e taxonomia do catálogo.
++
++---
++
++## 3. Roadmap em 4 Fases (PM)
++
++### Fase 1: Sprint Atual (v1.2-alpha) — "Polimento de vitrine"
++> **2 semanas** | Frontend puro + dados estáticos | Responsável: Fabio
++
++| # | Item | Tam | Critério de done |
++|---|------|:---:|---|
++| 1 | Merge invite-flow → v1.2 | P | Branch merged, build OK |
++| 2 | JSON estático BNCC (`data/bncc-lookup.json`) | P | Códigos do catálogo com descrições oficiais |
++| 3 | JSON estático CASEL (`data/casel-lookup.json`) | P | 5 competências + sub-skills |
++| 4 | Renomear labels das abas de recurso | P | "Contação da História", "Leitura", etc. |
++| 5 | Tooltip BNCC rico no detalhe | M | Hover/tap mostra descrição completa |
++| 6 | Tooltip CASEL e outros mapeamentos | M | Mesmo padrão da BNCC |
++| 7 | Distinção kit vs livro na vitrine (badge + campo mock) | M | Campo `collection_type` no seed, visual diferenciado |
++
++**Ordem**: 1 → 2 → 3 → 4 → 5 → 6 → 7
++
++---
++
++## 4. UX: Componentes Novos Necessários
++
++| Componente | Uso | Prioridade |
++|---|---|---|
++| `RichTooltip` | BNCC/CASEL hover (desktop: popover, mobile: bottom sheet) | Sprint 1 |
++| `AdaptiveResourceGrid` | 4-6 botões de recurso no detalhe | Sprint 2 |
++| `AgeGradeFilterBar` | Chips de ano escolar na home | Sprint 2 |
++| `CharacterFilterChip` | Filtro por personagem com fotos | Sprint 2 |
++| `GenericMaterialsSection` | Materiais de nível Central/coleção | Sprint 2 |
++| `ProgressDashboard` | Gamificação leve (barra, streak, conquistas) | v2.0 |
++| `ChildProfileCard` | Interface infantil simplificada | v2.0 |
++
++---
++
++## Documentos detalhados gerados
++
++| Documento | Agente | Conteúdo |
++|---|---|---|
++| [backlog-central-coruja-15abr2026.md](backlog-central-coruja-15abr2026.md) | PO (Pax) | 35 user stories + 6 anti-stories + 4 arch requirements |
++| [ux-report-reuniao-15abr2026.md](ux-report-reuniao-15abr2026.md) | UX (Uma) | 6 telas impactadas, 7 componentes, 4 fluxos, 3 riscos UX |
++| [roadmap-central-coruja-v1.2.md](roadmap-central-coruja-v1.2.md) | PM (Bob) | 4 fases, sprints detalhadas, métricas, riscos |
++| *(inline acima)* | Analyst (Atlas) | 25 requisitos × status × esforço × prioridade |
++
++**Atualização 18/04**: o backlog e o roadmap acima já foram complementados com o delta posterior do usuário, incluindo DELTA-US-001 a DELTA-US-003, revisão de vouchers, taxonomia editorial e arquitetura de dados.
+diff --git a/docs/docs/roadmap/index.md b/docs/docs/roadmap/index.md
+new file mode 100644
+index 0000000..5ec6147
+--- /dev/null
++++ b/docs/docs/roadmap/index.md
+@@ -0,0 +1,11 @@
++# Roadmap Consolidado
++
++Esta seção reúne os documentos de roadmap, backlog e PRDs relacionados ao projeto "Central Coruja".
++
++- [Roadmap Central Coruja v1.2](./roadmap-central-coruja-v1.2)
++- [Consolidado Backlog — Reunião 15/04/2026](./consolidado-backlog-reuniao-15abr2026)
++- [Backlog Central Coruja — 15/04/2026](./backlog-central-coruja-15abr2026)
++- [PRD — Gestão Administrativa de Vouchers por Conteúdo](./prd-vouchers-por-conteudo)
++- [Plano de Validação QA — v1.2](./qa-validation-plan-v1.2)
++
++Use estes documentos como fonte única para o planejamento e acompanhamento das entregas. Atualize os arquivos originais quando houver mudanças de escopo ou progresso nas sprints.
+diff --git a/docs/docs/roadmap/prd-vouchers-por-conteudo.md b/docs/docs/roadmap/prd-vouchers-por-conteudo.md
+new file mode 100644
+index 0000000..4fe5c39
+--- /dev/null
++++ b/docs/docs/roadmap/prd-vouchers-por-conteudo.md
+@@ -0,0 +1,116 @@
++# PRD - Vouchers por Conteúdo
++
++Status: Final draft  
++Data: 08/04/2026  
++Autores: Fabio (frontend), Maxwell (infra), Mario (produto)  
++Contexto: implementar gestão administrativa de vouchers atrelados a conteúdo, com exportação para gráfica e auditoria para fins operacionais.
++
++## Objetivo
++
++Permitir que administradores criem, gerenciem e auditem vouchers por conteúdo, com suporte a lotes, CSV/Excel de exportação, auditoria de consumo e integração mínima para produção de códigos em gráfica.
++
++Usuários finais resgatarão vouchers que liberam acesso a coleções específicas; administradores precisam visibilidade e capacidade de operação (criar lotes, revogar, exportar relatórios).
++
++## Visão Técnica — Modelagem proposta
++
++1) `voucher_model`
++- `id` (uuid)
++- `code` (string, única, 8-12 chars)
++- `batch_id` (uuid, FK)
++- `duration_months` (int)
++- `issued_by` (user_id)
++- `created_at` (timestamp)
++- `expires_at` (timestamp)
++- `status` (enum: issued, activated, consumed, revoked)
++- `target_collection_id` (nullable, FK para collections) — permite voucher por conteúdo
++
++2) `voucher_batch`
++- `id` (uuid)
++- `name` (string)
++- `issued_by` (user_id)
++- `quantity` (int)
++- `created_at` (timestamp)
++- `notes` (text)
++- `exported_at` (timestamp nullable)
++
++3) `user_content_grant`
++- `id` (uuid)
++- `user_id` (uuid)
++- `collection_id` (uuid)
++- `granted_by` (user_id)
++- `granted_at` (timestamp)
++- `expires_at` (timestamp)
++- `reason` (enum: voucher, promo, admin)
++
++4) `voucher_audit`
++- `id` (uuid)
++- `voucher_id` (uuid)
++- `action` (string: created, exported, activated, consumed, revoked)
++- `actor_user_id` (nullable)
++- `actor_ip` (nullable)
++- `meta` (jsonb) — detalhes extras (e.g., lote, export filename)
++- `created_at` (timestamp)
++
++## Endpoints APIs (proposta)
++
++- `POST /admin/voucher/batch` — criar lote e retornar preview CSV
++- `GET /admin/voucher/batch/:id/export` — gerar CSV/Excel (stream)
++- `POST /admin/voucher/:code/activate` — ativação (consumir)
++- `POST /admin/voucher/:code/revoke` — revogar voucher
++- `GET /admin/voucher/:id/audit` — obter logs de auditoria
++
++## Admin UI (resumo de telas)
++
++- Lista de lotes (batch list) com colunas: nome, quantidade, emitido por, criado em, exportado em, ações (exportar, detalhe).
++- Detalhe do lote: lista de códigos com status, botão de exportar CSV/Excel e botão de imprimir (PDF friendly).
++- Formulário criar lote: nome, quantidade, duração (meses), target_collection (opcional), notas.
++- Página de auditoria: filtro por voucher, por ação, por data, exportar.
++
++## Fluxo de impressão e gráfica
++
++1. Admin cria lote com `quantity` e `target_collection_id` opcional.
++2. Sistema gera códigos pseudorandom (8-12 chars) e persiste em `voucher_model` com `status: issued`.
++3. Admin exporta CSV/Excel com códigos e metadados (nome do lote, duração, target_collection_name, created_at).
++4. CSV enviado para gráfica; impressão em papel com QR code opcional que contém `https://site/resgatar?code=ABC123`.
++
++## Regras de negócio
++
++- Códigos únicos; generator com verificação de colisão.
++- Duração mínima: 1 mês; máxima por política: 12 meses (configurável via `MAX_CUSTOM_DURATION_MONTHS`).
++- Ao ativar voucher: criar `user_content_grant` com `granted_by = system` e `granted_at` timestamp atual, calcular `expires_at` com `duration_months`.
++- Se `target_collection_id` presente, grant libera apenas essa coleção; se nulo, grant dá acesso global por `duration_months`.
++
++## Auditoria e conformidade
++
++- Todas ações relevantes (create, export, activate, consume, revoke) gravadas em `voucher_audit`.
++- Endpoint `GET /admin/reports/vouchers` aceita filtros e gera relatório CSV/Excel com colunas obrigatórias: code, status, batch_name, granted_to_email, granted_at, expires_at, consumed_by, consumed_at, audit_trail_link.
++
++## Segurança e taxa de uso
++
++- Rate-limit endpoint de ativação (`/activate`) para evitar bruteforce (ex.: 60 req/min por IP).
++- Verificação geográfica opcional por política (ops).  
++- Logs de auditoria rotacionados a cada 90 dias ou conforme política da empresa.
++
++## Backwards compatibility
++
++- Se existir um campo `legacy_voucher` no schema antigo, migrar durante rollout para novo modelo com `batch_id` e manter mapeamento por `legacy_map` para históricos.
++
++## Métricas de sucesso
++
++- Time-to-issue: tempo médio para criar lote e obter CSV (meta < 5s no admin UI).  
++- Export throughput: capacidade de exportar 100k códigos sem timeout.  
++- Taxa de ativação por voucher enviado: > 60% (meta de conversão).  
++
++## Riscos
++
++- Geração de código insegura ou previsível -> usar generator criptográfico.  
++- Export CSV vazando dados sensíveis (ex.: emails) -> exportar apenas campos aprovados e com autorização.  
++
++## Próximos passos técnicos
++
++1. Definir migration SQL para `voucher_model`, `voucher_batch`, `voucher_audit`, `user_content_grant` em Supabase.  
++2. Implementar generator de códigos com validação única.  
++3. Endpoints admin mínimos para criar lote, exportar e auditar.  
++4. UI admin: lista de lotes e detalhe de lote com export.  
++
++*** End Patch
+\ No newline at end of file
+diff --git a/docs/docs/roadmap/qa-validation-plan-v1.2.md b/docs/docs/roadmap/qa-validation-plan-v1.2.md
+new file mode 100644
+index 0000000..c0c5cf3
+--- /dev/null
++++ b/docs/docs/roadmap/qa-validation-plan-v1.2.md
+@@ -0,0 +1,54 @@
++# Plano de Validação QA — Mundo de Kaboo v1.2
++
++> Última atualização: 20/04/2026
++> Objetivo: validar o conjunto de entregas marcadas como v1.2 e garantir estabilidade para demonstração controlada.
++
++## 1. Objetivos da rodada
++
++1. Verificar fluxos críticos: login, resgate de voucher, navegação Home → Coleção → Recurso.
++2. Garantir que tooltips (BNCC, CASEL) exibem dados corretos e não quebram em mobile.
++3. Assegurar que leitores (flipbook) e players (áudio/vídeo) abrem sem erros e têm fallback.
++4. Validar exportações administrativas (CSV/Excel) e logs de auditoria.
++
++## 2. Ambientes e dados
++
++- `dev` local com seed atualizado (`catalog.seed.json`) — recomendado para testes manuais.
++- `staging` (se disponível) com Supabase de homologação.
++- Dados de teste disponíveis em `data/` (bncc-lookup.json, casel-lookup.json, catalog.seed.json).
++
++## 3. Casos de teste críticos (smoke)
++
++1. Auth: signUp com e-mail, login, recuperar senha (quando implementado).
++2. Resgate voucher: criar lote local, exportar CSV, usar código no fluxo de resgate, validar `user_content_grant` criado.
++3. Home: aplicar filtro por segmento e busca textual; validar resultados e persistência de chips.
++4. Detalhe: abrir coleção com múltiplos recursos, verificar botões dinâmicos (Ler, Ouvir, Assistir, Assistir Acessível), confirmar que botões sem arquivo não aparecem.
++5. Flipbook: abrir PDF, usar zoom e modo texto; alternar entre páginas, testar acessibilidade básica (tab navigation).
++6. Player áudio: tocar/pausar/seek, validar que o player não trava em mobile.
++7. Export admin: gerar CSV/Excel de lote e abrir no Excel/LibreOffice; validar colunas obrigatórias.
++8. Auditoria: checar registros de ativação e consumo no endpoint de auditoria.
++
++## 4. Testes exploratórios
++
++- Navegar em telas com largura 320, 375, 768, 1024; verificar grid adaptativo para botões de recurso.
++- Validar tooltips BNCC e CASEL em touch e hover.
++- Checar fallback quando `accessible_video_url` ou `animated_video_url` não estão presentes (should hide button gracefully).
++
++## 5. Critérios de aceitação para avanço
++
++- Nenhum bug crítico aberto (quebrem fluxo de resgate, leitura ou login).
++- Máximo de 3 bugs médios; caso exceda, postergar release controlado.
++- Bugs baixos documentados e agendados para próxima sprint.
++
++## 6. Checklist de release demo
++
++- [ ] Merge `feature/invite-flow` concluído e build aprovado.
++- [ ] Seed de demonstração atualizado com 16 coleções e assets.
++- [ ] Export de lote de voucher testado e CSV validado.
++- [ ] QA smoke completo com pass em dev local.
++
++## 7. Observações operacionais
++
++- Para testes locais, use `npm run start` em `mundo-de-kaboo-main/docs` para validar docs e instruções de QA.
++- Usar `npm run dev` no front-end principal para validar comportamentos de runtime.
++
++*** End Patch
+\ No newline at end of file
+diff --git a/docs/docs/roadmap/roadmap-central-coruja-v1.2.md b/docs/docs/roadmap/roadmap-central-coruja-v1.2.md
+new file mode 100644
+index 0000000..3ae3a30
+--- /dev/null
++++ b/docs/docs/roadmap/roadmap-central-coruja-v1.2.md
+@@ -0,0 +1,165 @@
++# Roadmap Central Coruja — Pós-Reunião 15/04/2026
++
++> Gerado em: 18/04/2026  
++> Fonte: reunião de produto 15/04/2026 + estado do código em `feature/invite-flow`  
++> Responsável pelo roadmap: PM (Bob)  
++> Aprovação pendente: Mario (produto), Reginaldo (direção)
++
++---
++
++## Visão de produto
++
++A Central Coruja é um **"Netflix de conteúdo extra, só consumível"**: complemento digital a kits e livros físicos, acesso via voucher, cadastro adulto (familiar ou educador), sem jogos, sem turmas, sem alunos. O app deve entregar valor percebido imediato no primeiro acesso e escalar em funcionalidades de descoberta e conteúdo antes de tocar em gamificação, perfil infantil ou academia.
++
++---
++
++## Estado atual do código (baseline)
++
++| Área | Status |
++|------|--------|
++| Auth (email+senha, mock local) | ✅ Completo |
++| Voucher temporal (resgate, renovação, expiração) | ✅ Completo |
++| Voucher CMS admin (modelos, lotes, códigos, auditoria) | ✅ Completo |
++| Content grants (liberação por conteúdo) | ✅ Completo |
++| Catálogo mock (16 coleções reais) | ✅ Completo |
++| Leitor de PDF (flipbook) | ✅ Completo |
++| Design system (17 componentes + Storybook) | ✅ Completo |
++| Convite de colaboradores (invite flow) | ✅ Em finalização (`feature/invite-flow`) |
++| Busca/filtros unificados na home | ✅ Implementado na `HomeScreen` |
++| Deploy GitHub Pages (modo demo) | ✅ Configurado |
++| Backend Supabase remoto | ⚠️ Preparado, não validado em produção |
++
++### Atualização local — 19/04/2026
++
++- `data/casel-lookup.json` e tooltip CASEL rico entregues no detalhe da coleção.
++- Distinção kit vs livro entregue localmente com badge visual, `collection_type` no seed/mock e `kit_cover_image` opcional.
++- Materiais da Central estruturados em modo mock/local, sem exposição fixa na home atual.
++- Catálogo mock enriquecido com `collection_assets` para Libras, animação, como jogar e videoaula, usando a superfície tipada já existente.
++- Especificação de UX para seleção mobile da BNCC documentada em `docs/spec-bncc-mobile-filter.md`, consolidando a direção de full-screen sheet com seleção direta na lista no lugar da grade extensa de chips.
++
++### Atualização local — 20/04/2026
++
++- A UX final da busca inline na Home foi fechada em `HomeScreen`: clicar na barra não abre mais uma tela intermediária errada.
++- Busca textual agora funciona como overlay sobre a grade existente, com fechamento e entrada em linha no próprio campo, sem CTA redundante no header desktop.
++- Quando há apenas filtros ativos, sem texto de busca, o estado final passou a mostrar diretamente a grade filtrada com a chip ativa, sem card flutuante de resultados sobreposto.
++- Build e QA manual/browser foram refeitos após esse ajuste final, mantendo `v1.2 local demonstrável` em 100%.
++
++---
++
++## Fase 1 — Sprint Atual (v1.2-alpha) — "Polimento de vitrine"
++
++**Objetivo**: entregar as melhorias de UX que o usuário final percebe imediatamente, usando apenas frontend e dados estáticos. Zero dependência de backend.
++
++**Duração estimada**: 2 semanas (19/04 → 02/05)  
++**Responsável principal**: Fabio
++
++| # | Item | Tam. | Dependência | Critério de done |
++|---|------|------|-------------|------------------|
++| 1 | **Renomear labels das abas de recurso** (Ler→Leitura, Ouvir→Contação da História, Assistir→Desenho Animado) | P | Nenhuma | Labels atualizados em `constants.ts` e refletidos no detalhe da coleção. Validação visual em mock. |
++| 2 | **JSON estático BNCC** (códigos → descrições completas) | P | Nenhuma | Arquivo `data/bncc-lookup.json` com pelo menos os códigos usados no catálogo atual. Fonte: documento oficial da BNCC. |
++| 3 | **Tooltip BNCC no detalhe** (hover mostra descrição rica) | M | Item 2 | Ao hover/tap no código BNCC, tooltip exibe campo de conhecimento, componente e descrição. Mobile: tap abre popover. Acessível (aria-describedby). |
++| 4 | **JSON estático CASEL** (competências → descrições) | P | Nenhuma | Arquivo `data/casel-lookup.json` com as 5 competências CASEL + sub-skills. |
++| 5 | **Tooltip descritivo para outros mapeamentos** (CASEL, ODS, etc.) | M | Item 4 | Mesma UX do tooltip BNCC para todos os chips de mapeamento no detalhe. |
++| 6 | **Distinção kit vs livro na vitrine** | M | Dados mock (item 13) | Campo `collection_type: 'kit' \| 'book'` no seed. Card da home exibe badge visual diferenciador. Modal de coleção mostra composição do kit quando aplicável. |
++| 7 | **Merge branch invite-flow → v1.2** | P | Finalização do invite flow | Branch `feature/invite-flow` merged em `v1.2`. Sem conflitos. Build passa. |
++
++**Ordem de execução recomendada**: 7 → 2 → 4 → 1 → 3 → 5 → 6
++
++**Dados estáticos necessários (pré-requisito dos itens 2, 4, 6)**:
++
++| # | Dado | Tam. | Responsável |
++|---|------|------|-------------|
++| 11 | `data/bncc-lookup.json` | P | Fabio (extrair do documento BNCC oficial) |
++| 12 | `data/casel-lookup.json` | P | Fabio (fonte: casel.org) |
++| 13 | Campo `collection_type` no `catalog.seed.json` | P | Fabio (Mario valida classificação) |
++
++---
++
++## Fase 2 — Próxima Sprint (v1.2-beta) — "Descoberta e novos recursos"
++
++**Objetivo**: implementar filtros unificados e os novos campos de conteúdo audiovisual. Completar a experiência de "vitrine Netflix".
++
++**Duração estimada**: 2 semanas (03/05 → 16/05)  
++**Responsável principal**: Fabio
++
++| # | Item | Tam. | Dependência | Critério de done |
++|---|------|------|-------------|------------------|
++| 4h | **Filtro rápido por ano escolar na home** | M | Plano de busca/filtros (session plan) | Chip de ano escolar funcional na home. Filtra catálogo por metadado de faixa etária/série. Persiste ao voltar de coleção. |
++| 8 | **Grid adaptativo para 4-6 botões no detalhe** | M | Nenhuma | Grid responsivo no detalhe da coleção comporta até 6 botões de recurso sem quebra de layout. Testado em 320px, 375px, 768px e 1024px. |
++| 6v | **Botão + campo para vídeo acessível (Libras)** | M | Nenhuma (frontend puro, campo mock) | Botão "Assistir Acessível" aparece no detalhe quando `accessible_video_url` existe. Player embarcado ou link externo. Campo no mock/seed. |
++| 7v | **Botão + campo para vídeo animado (IA)** | M | Nenhuma (frontend puro, campo mock) | Botão "Desenho Animado" aparece no detalhe quando `animated_video_url` existe. Mesma UX do vídeo acessível. |
++| 9 | **Área de materiais genéricos** (nível Central/coleção) | G | Decisão de produto sobre modelo de dados | Seção "Materiais" visível na home ou no detalhe da coleção. Aceita PDFs/links genéricos não atrelados a um recurso específico. Mock com 2-3 materiais de exemplo. |
++| BF | **Busca + filtros unificados na home (plano completo)** | G | Session plan já aprovado | Barra de busca + chips rápidos + sheet avançado na HomeScreen. SearchScreen vira alias. Persistência de estado ao navegar. |
++
++**Ordem de execução recomendada**: BF → 4h → 8 → 6v → 7v → 9
++
++---
++
++## Fase 3 — Backlog Curto Prazo (v1.2-rc → v1.3) — "Produção e backend"
++
++**Objetivo**: validar o backend real, implementar campos no Supabase e preparar para publicação nas lojas.
++
++**Duração estimada**: 3-4 semanas (17/05 → 13/06)  
++**Responsáveis**: Fabio (frontend-backend integration), Maxwell (infra), Mario (validação)
++
++| # | Item | Tam. | Responsável | Dependência |
++|---|------|------|-------------|-------------|
++| 14 | **Tabela BNCC no Supabase** (migrar JSON para banco) | M | Fabio | Supabase remoto validado |
++| 15 | **Campo `accessible_video_url` na collection** | P | Fabio | Migration Supabase |
++| 16 | **Campo `animated_video_url` na collection** | P | Fabio | Migration Supabase |
++| 17 | **Campo `collection_type` na collection** | P | Fabio | Migration Supabase |
++| 18 | **Materiais genéricos como entidade separada** | M | Fabio | Decisão de modelagem |
++| 10 | **Campo CPF opcional no cadastro** | M | Fabio | Validação jurídica (ECA digital) |
++| 19 | **Assinatura digital pós-voucher** | G | Fabio + Mario | Definição de fluxo de UX |
++| 22 | **Servidor/banco separado para Central Coruja** | G | Maxwell | Conta Empatia definida |
++| 20 | **Conta Empatia nas lojas Google/Apple** | M | Maxwell + Douglas + Rafael | Decisão de conta confirmada |
++| 21 | **Build nativo (Capacitor/Expo)** | G | Douglas + Rafael | Conta nas lojas + build estável |
++
++---
++
++## Fase 4 — Backlog Longo Prazo (v2.0+) — "Expansão"
++
++**Objetivo**: funcionalidades de segundo passo que ampliam o público e a proposta de valor.
++
++| # | Item | Tam. | Responsável | Pré-condição |
++|---|------|------|-------------|--------------|
++| 23 | **Academia/formação** (módulo novo) | XG | Fabio + Mario | v1.3 estável, conteúdo de formação produzido |
++| 24 | **Gamificação adulto** (metas, progresso, conquistas) | G | Fabio | v1.3 estável, design de mecânicas aprovado |
++| 25 | **Perfil infantil** (cadastro criança, interface infantil) | G | Fabio | Validação jurídica ECA, design infantil |
++| 26 | **Login com Educa Cross (OAuth)** | M | Fabio + Maxwell | API de OAuth do Educa Cross disponível |
++
++---
++
++## Métricas de entrega
++
++### O que define "v1.2 entregue"
++
++- [x] Convite de colaboradores funcionando (invite flow merged)
++- [x] Labels de abas renomeados
++- [x] Tooltips BNCC e CASEL funcionando com dados estáticos
++- [x] Distinção kit vs livro visível na vitrine
++- [x] Busca + filtros unificados na home
++- [x] Botões de vídeo acessível e animado presentes no detalhe
++- [x] Grid adaptativo para 4-6 recursos
++- [x] Build de produção atual passa, com QA manual validado em modo mock local
++- [x] Catálogo mock atualizado com todos os novos campos
++
++**Definição**: v1.2 é a versão "vitrine completa" que pode ser demonstrada para stakeholders e testada por usuários beta via voucher, sem depender de backend real.
++
++---
++
++## Riscos e mitigações
++
++| # | Risco | Probabilidade | Impacto | Mitigação |
++|---|-------|---------------|---------|-----------|
++| R1 | **Dados BNCC incompletos ou imprecisos** — o JSON precisa cobrir os códigos usados no catálogo | Média | Alto | Fabio extrai do documento oficial; Mario valida uma amostra. Se faltar código, tooltip mostra "Descrição não disponível" como fallback. |
++| R2 | **Conta Empatia nas lojas demora** — depende de Douglas/Rafael/Maxwell e aprovação das lojas | Alta | Alto | Iniciar processo de registro na semana de 21/04. Não bloqueia v1.2 (que roda em demo/web). |
++| R3 | **Fabio é gargalo único no frontend** — todo item de código depende dele | Alta | Crítico | Priorização rígida: sprint atual contém apenas itens P e M. Itens G ficam na sprint seguinte. Nenhum item G em paralelo. |
++| R4 | **Backend Supabase com migrations divergentes** — histórico remoto pode conflitar com local | Média | Médio | Antes de rodar migrations remotas, fazer `supabase db diff` e alinhar. Manter fallback mock funcional. |
++| R5 | **Escopo creep de produto** — reunião mencionou academia, gamificação, perfil infantil | Média | Médio | Todos classificados como v2.0. Qualquer promoção de item precisa de aprovação explícita do Mario com re-estimativa. |
++| R6 | **Classificação kit vs livro ambígua** — nem toda coleção tem classificação clara | Baixa | Baixo | Mario classifica manualmente as 16 coleções atuais. Campo aceita null como "não classificado". |
++| R7 | **Busca/filtros unificados estouram a sprint** — item G com várias superfícies | Média | Médio | Dividir em 2 PRs: (1) migração de lógica, (2) redesign da barra + chips. Se estourar, finalizar na sprint seguinte sem bloquear release dos tooltips. |
++
++---
++
++*Documento vivo. Atualizar a cada sprint review com itens concluídos, re-estimativas e mudanças de prioridade.*
+diff --git a/docs/sidebars.ts b/docs/sidebars.ts
+index 2068dc2..befb137 100644
+--- a/docs/sidebars.ts
++++ b/docs/sidebars.ts
+@@ -90,6 +90,18 @@ const sidebars: SidebarsConfig = {
+         'journeys/reference',
+       ],
+     },
++    {
++      type: 'category',
++      label: '🗺️ Roadmap',
++      items: [
++        'roadmap/index',
++        'roadmap/roadmap-central-coruja-v1.2',
++        'roadmap/consolidado-backlog-reuniao-15abr2026',
++        'roadmap/backlog-central-coruja-15abr2026',
++        'roadmap/prd-vouchers-por-conteudo',
++        'roadmap/qa-validation-plan-v1.2',
++      ],
++    },
+     'contributing',
+   ],
+ };
+-- 
+2.53.0.windows.1
+

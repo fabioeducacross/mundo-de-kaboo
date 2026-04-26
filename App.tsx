@@ -24,6 +24,7 @@ import { SetPasswordScreen } from './screens/SetPasswordScreen';
 import { AdminScreen } from './screens/AdminScreen';
 import { CharactersScreen } from './screens/CharactersScreen';
 import { DesignSystemScreen } from './screens/DesignSystemScreen';
+import { LibraryHubScreen } from './screens/LibraryHubScreen';
 
 // Components
 import { BottomNav } from './components/BottomNav';
@@ -38,6 +39,10 @@ const STORAGE_PREVIOUS_STATE = 'kaboo_previous_state';
 const PROTECTED_SCREENS: ScreenName[] = [
   'home',
   'search',
+  'videos',
+  'music',
+  'formations',
+  'materials',
   'profile',
   'my_data',
   'player_book',
@@ -56,6 +61,10 @@ const HASH_ADDRESSABLE_SCREENS = new Set<ScreenName>([
   'access_expired',
   'home',
   'search',
+  'videos',
+  'music',
+  'formations',
+  'materials',
   'profile',
   'my_data',
   'support',
@@ -115,7 +124,7 @@ const loadNavState = (): NavState | null => {
   return null;
 };
 
-const savePreviousState = (state: { screen: ScreenName; collectionId?: string } | null) => {
+const savePreviousState = (state: { screen: ScreenName; params?: any } | null) => {
   try {
     if (state) {
       localStorage.setItem(STORAGE_PREVIOUS_STATE, JSON.stringify(state));
@@ -127,11 +136,11 @@ const savePreviousState = (state: { screen: ScreenName; collectionId?: string } 
   }
 };
 
-const loadPreviousState = (): { screen: ScreenName; collectionId?: string } | null => {
+const loadPreviousState = (): { screen: ScreenName; params?: any } | null => {
   try {
     const saved = localStorage.getItem(STORAGE_PREVIOUS_STATE);
     if (saved) {
-      return JSON.parse(saved) as { screen: ScreenName; collectionId?: string };
+      return JSON.parse(saved) as { screen: ScreenName; params?: any };
     }
   } catch (error) {
     logger.warn('Failed to load previous state from localStorage:', error);
@@ -168,7 +177,7 @@ const App: React.FC = () => {
 
   const [currentCollection, setCurrentCollection] = useState<Collection | undefined>(undefined);
   // Store previous screen and collectionId before navigating to player screens
-  const [previousScreenState, setPreviousScreenState] = useState<{ screen: ScreenName; collectionId?: string } | null>(() => {
+  const [previousScreenState, setPreviousScreenState] = useState<{ screen: ScreenName; params?: any } | null>(() => {
     return loadPreviousState();
   });
   // Store collection theme color for loading screen
@@ -473,17 +482,19 @@ const App: React.FC = () => {
     const normalizedScreen = screen === 'search' ? 'home' : screen;
     const normalizedParams = screen === 'search'
       ? {
-          ...params,
-          inlineSearch: true,
-          focusSearch: params?.focusSearch ?? true,
-        }
+        ...params,
+        inlineSearch: true,
+        focusSearch: params?.focusSearch ?? true,
+      }
       : params;
 
-    // Store previous state before navigating to player screens
-    if (PLAYER_SCREENS.includes(normalizedScreen)) {
+    // Store previous state only when entering a player from a non-player screen.
+    // If already inside a player (for example opening a related video), preserve
+    // the original origin screen so Back exits the modal instead of looping players.
+    if (PLAYER_SCREENS.includes(normalizedScreen) && !PLAYER_SCREENS.includes(navState.currentScreen)) {
       const newPreviousState = {
         screen: navState.currentScreen,
-        collectionId: navState.params?.collectionId
+        params: navState.params,
       };
       setPreviousScreenState(newPreviousState);
       savePreviousState(newPreviousState);
@@ -532,11 +543,84 @@ const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessProfile]);
 
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hashState = getNavStateFromHash();
+      if (!hashState) {
+        return;
+      }
+
+      setNavState((prev) => {
+        if (prev.currentScreen === hashState.currentScreen && prev.params === undefined) {
+          return prev;
+        }
+
+        saveNavState(hashState);
+        return hashState;
+      });
+      window.scrollTo(0, 0);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const goBack = () => {
     if (PLAYER_SCREENS.includes(navState.currentScreen)) {
+      const modalStackIds = Array.isArray(navState.params?.returnToModal?.stackIds)
+        ? navState.params.returnToModal.stackIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+        : [];
+      const canRestorePreviousScreen =
+        !!previousScreenState
+        && !PLAYER_SCREENS.includes(previousScreenState.screen);
+      const canRestoreModal =
+        modalStackIds.length > 0
+        && previousScreenState
+        && ['home', 'search'].includes(previousScreenState.screen);
+
       // Clear previousScreenState then use browser history so no duplicate entry is pushed
       setPreviousScreenState(null);
       savePreviousState(null);
+
+      if (canRestoreModal) {
+        const restoredNavState = {
+          currentScreen: previousScreenState.screen,
+          params: {
+            ...(previousScreenState.params ?? {}),
+            collectionId: modalStackIds[0],
+            modalStackIds,
+          },
+        };
+
+        setNavState(restoredNavState);
+        saveNavState(restoredNavState);
+        history.replaceState(
+          { screen: restoredNavState.currentScreen, params: restoredNavState.params },
+          '',
+          `#${restoredNavState.currentScreen}`
+        );
+        window.scrollTo(0, 0);
+        return;
+      }
+
+      if (canRestorePreviousScreen && previousScreenState) {
+        const restoredNavState = {
+          currentScreen: previousScreenState.screen,
+          params: previousScreenState.params,
+        };
+
+        setNavState(restoredNavState);
+        saveNavState(restoredNavState);
+        history.replaceState(
+          { screen: restoredNavState.currentScreen, params: restoredNavState.params },
+          '',
+          `#${restoredNavState.currentScreen}`
+        );
+        window.scrollTo(0, 0);
+        return;
+      }
+
       if (window.history.length > 1) {
         window.history.back();
       } else {
@@ -544,7 +628,7 @@ const App: React.FC = () => {
       }
     } else if (navState.currentScreen === 'my_data') {
       navigate('profile');
-    } else if (navState.currentScreen === 'search' || navState.currentScreen === 'support' || navState.currentScreen === 'profile') {
+    } else if (['search', 'support', 'videos', 'music', 'formations', 'materials', 'profile'].includes(navState.currentScreen)) {
       navigate('home');
     } else {
       navigate('home');
@@ -557,7 +641,11 @@ const App: React.FC = () => {
     savePreviousState(null);
     // Clear the collectionId from params
     if (navState.params?.collectionId) {
-      const { collectionId: _collectionId, ...remainingParams } = navState.params;
+      const {
+        collectionId: _collectionId,
+        modalStackIds: _modalStackIds,
+        ...remainingParams
+      } = navState.params;
       const newNavState = {
         ...navState,
         params: Object.keys(remainingParams).length > 0 ? remainingParams : undefined
@@ -626,6 +714,18 @@ const App: React.FC = () => {
       case 'search':
         return <HomeScreen key="search-home-screen" onNavigate={navigate} params={navState.params} accessProfile={accessProfile} screenName="home" searchMode />;
 
+      case 'videos':
+        return <LibraryHubScreen screen="videos" onNavigate={navigate} />;
+
+      case 'music':
+        return <LibraryHubScreen screen="music" onNavigate={navigate} />;
+
+      case 'formations':
+        return <LibraryHubScreen screen="formations" onNavigate={navigate} />;
+
+      case 'materials':
+        return <LibraryHubScreen screen="materials" onNavigate={navigate} />;
+
       case 'profile':
         return <ProfileScreen onNavigate={navigate} />;
 
@@ -644,8 +744,10 @@ const App: React.FC = () => {
         return (
           <AudioPlayerScreen
             collection={currentCollection}
+            mediaItemId={navState.params?.mediaItemId}
             assetUrl={navState.params?.assetUrl}
             assetTitle={navState.params?.assetTitle}
+            onNavigate={navigate}
             onBack={goBack}
           />
         );
@@ -713,8 +815,10 @@ const App: React.FC = () => {
         return (
           <VideoPlayerScreen
             collection={currentCollection}
+            mediaItemId={navState.params?.mediaItemId}
             assetUrl={navState.params?.assetUrl}
             assetTitle={navState.params?.assetTitle}
+            onNavigate={navigate}
             onBack={goBack}
           />
         );
@@ -766,7 +870,7 @@ const App: React.FC = () => {
     }
   };
 
-  const showNav = ['home', 'search', 'support', 'profile', 'my_data', 'admin', 'characters'].includes(navState.currentScreen);
+  const showNav = ['home', 'search', 'videos', 'music', 'formations', 'materials', 'support', 'profile', 'my_data', 'admin', 'characters'].includes(navState.currentScreen);
   // Modal opens immediately when collectionId is present, even if collection is still loading
   const isModalOpen = !!navState.params?.collectionId && ['home', 'search'].includes(navState.currentScreen);
 
@@ -774,7 +878,7 @@ const App: React.FC = () => {
     <div className="bg-white min-h-screen w-full flex flex-col md:flex-row overflow-x-hidden">
 
       {showNav && (
-        <BottomNav currentScreen={navState.currentScreen} onNavigate={navigate} profile={accessProfile} />
+        <BottomNav currentScreen={navState.currentScreen} currentParams={navState.params} onNavigate={navigate} profile={accessProfile} />
       )}
 
       <main className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative h-screen w-full bg-white`}>
@@ -785,6 +889,7 @@ const App: React.FC = () => {
       <CollectionModal
         collection={currentCollection || null}
         isOpen={isModalOpen}
+        initialStackIds={Array.isArray(navState.params?.modalStackIds) ? navState.params.modalStackIds : undefined}
         onClose={closeModal}
         onNavigate={navigate}
       />

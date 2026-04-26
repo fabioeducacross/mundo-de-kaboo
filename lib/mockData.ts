@@ -19,7 +19,7 @@ import {
 import { isPlaceholderImageUrl, placeholderImageUrl, resolveAppUrl } from './appPaths';
 import { syncCollectionCharacters } from './characters';
 import { syncCollectionWithAssets } from './collectionAssets';
-import { getCollectionType } from './collectionPresentation';
+import { getCollectionType, normalizeSingleKitBookIds } from './collectionPresentation';
 import { createGrantsFromRedemption, deleteUserContentGrants } from './mockVoucherData';
 
 interface CatalogSeed {
@@ -84,7 +84,7 @@ const normalizeOptionalImageUrl = (value?: string | null): string | null => {
 };
 
 const normalizeKitBookIds = (value?: string[] | null): string[] => {
-    return Array.from(new Set((value || []).map((id) => id?.trim()).filter(Boolean) as string[]));
+    return normalizeSingleKitBookIds(value);
 };
 
 const normalizeCollectionRecord = (collection: Collection): Collection => {
@@ -155,6 +155,7 @@ const DEFAULT_MOCK_USERS: MockUserAccount[] = [buildAdminDemoUser()];
 const DEFAULT_MOCK_VOUCHERS: Voucher[] = [
     { id: 'voucher-1', code: 'KABOO-1MES-2026', duration_months: 1, status: 'active' },
     { id: 'voucher-livr-0001', code: 'KABOO-LIVR-0001', duration_months: 3, status: 'active' },
+    { id: 'voucher-test-0001', code: 'KABOO-TEST-0001', duration_months: 3, status: 'active' },
     { id: 'voucher-3', code: 'KABOO-3MESES-2026', duration_months: 3, status: 'active' },
     { id: 'voucher-6', code: 'KABOO-6MESES-2026', duration_months: 6, status: 'active' },
     { id: 'voucher-9', code: 'KABOO-9MESES-2026', duration_months: 9, status: 'active' },

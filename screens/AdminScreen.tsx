@@ -15,12 +15,18 @@ interface AdminScreenProps {
 
 const MODULE_META: Record<AdminModule, { icon: React.FC<{ className?: string }>; label: string }> = {
     collections: { icon: Icons.Library, label: 'Coleções' },
+    videos: { icon: Icons.Video, label: 'Vídeos' },
+    music: { icon: Icons.Headphones, label: 'Músicas' },
+    formations: { icon: Icons.BookOpen, label: 'Formações' },
+    materials: { icon: Icons.FileText, label: 'Materiais' },
     users: { icon: Icons.User, label: 'Usuários' },
     vouchers: { icon: Icons.Ticket, label: 'Vouchers' },
     characters: { icon: Icons.Users, label: 'Personagens' },
 };
 
-const MODULES: AdminModule[] = ['collections', 'users', 'characters', 'vouchers'];
+const MODULES: AdminModule[] = ['collections', 'videos', 'music', 'formations', 'materials', 'users', 'characters', 'vouchers'];
+
+const COLLECTION_SCREEN_MODULES: AdminModule[] = ['collections', 'users', 'videos', 'music', 'formations', 'materials'];
 
 /* ─── Sidebar ──────────────────────────────────────────── */
 
@@ -121,7 +127,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onNavigate, onBack }) 
 
     const handleModuleSelect = (mod: AdminModule) => {
         // Guard: check for unsaved changes before leaving collections/users module
-        if ((activeModule === 'collections' || activeModule === 'users') && mod !== activeModule) {
+        if (COLLECTION_SCREEN_MODULES.includes(activeModule) && mod !== activeModule) {
             if (collectionsRef.current?.hasUnsavedChanges()) {
                 if (!window.confirm('Você tem alterações não salvas. Deseja sair sem salvar?')) {
                     return;
@@ -144,6 +150,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onNavigate, onBack }) 
         switch (activeModule) {
             case 'collections':
             case 'users':
+            case 'videos':
+            case 'music':
+            case 'formations':
+            case 'materials':
                 // Delegate to legacy screen; pass the active tab so it opens the right one
                 return (
                     <AdminCollectionsScreen
@@ -151,7 +161,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onNavigate, onBack }) 
                         key={activeModule}
                         onNavigate={onNavigate}
                         onBack={onBack}
-                        initialTab={activeModule}
+                        initialTab={activeModule === 'users' ? 'users' : 'collections'}
+                        initialLibraryArea={activeModule === 'collections' || activeModule === 'users' ? undefined : activeModule}
                     />
                 );
             case 'vouchers':

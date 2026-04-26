@@ -1,21 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Icons } from '../components/Icons';
 import { placeholderImageUrl } from '../lib/appPaths';
-import { Collection } from '../types';
+import { Collection, MediaItemCard, ScreenName } from '../types';
 import { useThemeBackground } from '../hooks/useThemeBackground';
 import { GalaxyBackground } from '../components/GalaxyBackground';
+import { api } from '../lib/api';
 
 interface AudioPlayerScreenProps {
   collection: Collection;
+  mediaItemId?: string;
   assetUrl?: string;
   assetTitle?: string;
+  onNavigate: (screen: ScreenName, params?: any) => void;
   onBack: () => void;
 }
 
 export const AudioPlayerScreen: React.FC<AudioPlayerScreenProps> = ({
   collection,
+  mediaItemId,
   assetUrl,
   assetTitle,
+  onNavigate,
   onBack,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -28,13 +33,20 @@ export const AudioPlayerScreen: React.FC<AudioPlayerScreenProps> = ({
   const [dragStartRotation, setDragStartRotation] = useState(0);
   const [isHoveringCd, setIsHoveringCd] = useState(false);
   const [playError, setPlayError] = useState<string | null>(null);
+  const [resolvedPlaybackUrl, setResolvedPlaybackUrl] = useState<string | null>(null);
+  const [resolvedPlaybackTitle, setResolvedPlaybackTitle] = useState<string | null>(null);
+  const [relatedTracks, setRelatedTracks] = useState<MediaItemCard[]>([]);
+  const [trackDescription, setTrackDescription] = useState<string>('');
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rotationIntervalRef = useRef<number | null>(null);
+  const lastSavedAtRef = useRef(0);
+  const lastSavedPositionRef = useRef(0);
+  const saveInFlightRef = useRef(false);
 
   const themeColor = collection.color_theme || '#5D1F58';
-  const resolvedAudioUrl = assetUrl ?? collection.audio_url;
-  const resolvedTitle = assetTitle ?? collection.title;
+  const resolvedAudioUrl = resolvedPlaybackUrl ?? assetUrl ?? collection.audio_url;
+  const resolvedTitle = resolvedPlaybackTitle ?? assetTitle ?? collection.title;
   const progressPercent = duration ? (currentTime / duration) * 100 : 0;
 
   // Set browser background to match theme color
@@ -60,6 +72,83 @@ export const AudioPlayerScreen: React.FC<AudioPlayerScreenProps> = ({
       audioRef.current.playbackRate = playbackRate;
     }
   }, [playbackRate]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    setResolvedPlaybackUrl(null);
+    setResolvedPlaybackTitle(null);
+
+    if (!mediaItemId) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    api.resolveMediaPlayback(mediaItemId)
+      .then((session) => {
+        if (!isActive) {
+          return;
+        }
+
+        setResolvedPlaybackUrl(session.source.url ?? null);
+        setResolvedPlaybackTitle(session.item.title);
+      })
+      .catch(() => {
+        if (!isActive) {
+          return;
+        }
+
+        setResolvedPlaybackUrl(null);
+        setResolvedPlaybackTitle(null);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [mediaItemId]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    setRelatedTracks([]);
+    setTrackDescription('');
+
+    const loadContext = async () => {
+      try {
+        const [hub, detail] = await Promise.all([
+          api.getMediaHub('music'),
+          mediaItemId ? api.getMediaItem(mediaItemId) : Promise.resolve(null),
+        ]);
+
+        if (!isActive) {
+          return;
+        }
+
+        const allItems = [
+          ...(hub.hero ? [hub.hero] : []),
+          ...hub.shelves.flatMap((shelf) => shelf.items),
+        ];
+        const unique = Array.from(new Map(allItems.map((item) => [item.id, item])).values());
+
+        setRelatedTracks(unique.filter((item) => item.id !== mediaItemId).slice(0, 8));
+        setTrackDescription(detail?.description ?? detail?.summary ?? collection.description ?? '');
+      } catch {
+        if (!isActive) {
+          return;
+        }
+
+        setRelatedTracks([]);
+        setTrackDescription(collection.description ?? '');
+      }
+    };
+
+    loadContext();
+
+    return () => {
+      isActive = false;
+    };
+  }, [collection.description, mediaItemId]);
 
   // Reset CD rotation when audio resets to 0 and not playing
   // But don't reset if we're about to play (isPlaying becomes true)
@@ -168,6 +257,7 @@ export const AudioPlayerScreen: React.FC<AudioPlayerScreenProps> = ({
 
   const handleSeekEnd = () => {
     setIsDragging(false);
+    maybeSaveProgress(true);
   };
 
   const skipForward = () => {
@@ -197,6 +287,66 @@ export const AudioPlayerScreen: React.FC<AudioPlayerScreenProps> = ({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const maybeSaveProgress = useCallback((force = false) => {
+    if (!mediaItemId || saveInFlightRef.current) {
+      return;
+    }
+
+    const positionSeconds = Math.max(0, Math.floor(currentTime));
+    const totalDurationSeconds = Number.isFinite(duration) && duration > 0
+      ? Math.floor(duration)
+      : undefined;
+    const progressPercent = totalDurationSeconds
+      ? Math.max(0, Math.min(100, Math.round((positionSeconds / totalDurationSeconds) * 100)))
+      : 0;
+
+    if (!force) {
+      const elapsedMs = Date.now() - lastSavedAtRef.current;
+      const movedSeconds = Math.abs(positionSeconds - lastSavedPositionRef.current);
+
+      if (elapsedMs < 10000 || movedSeconds < 5) {
+        return;
+      }
+    }
+
+    saveInFlightRef.current = true;
+
+    api.saveMediaProgress({
+      mediaItemId,
+      lastPositionSeconds: positionSeconds,
+      progressPercent,
+      totalDurationSeconds,
+      completed: totalDurationSeconds ? positionSeconds >= totalDurationSeconds - 2 : false,
+    }).finally(() => {
+      saveInFlightRef.current = false;
+      lastSavedAtRef.current = Date.now();
+      lastSavedPositionRef.current = positionSeconds;
+    });
+  }, [currentTime, duration, mediaItemId]);
+
+  useEffect(() => {
+    maybeSaveProgress(false);
+  }, [currentTime, maybeSaveProgress]);
+
+  useEffect(() => {
+    return () => {
+      maybeSaveProgress(true);
+    };
+  }, [maybeSaveProgress]);
+
+  const handleBack = () => {
+    maybeSaveProgress(true);
+    onBack();
+  };
+
+  const openRelatedTrack = (item: MediaItemCard) => {
+    onNavigate('player_audio', {
+      collectionId: item.collectionId ?? collection.id,
+      mediaItemId: item.id,
+      assetTitle: item.title,
+    });
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col overflow-hidden"
@@ -217,16 +367,22 @@ export const AudioPlayerScreen: React.FC<AudioPlayerScreenProps> = ({
           src={resolvedAudioUrl}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
-          onEnded={() => setIsPlaying(false)}
+          onEnded={() => {
+            setIsPlaying(false);
+            maybeSaveProgress(true);
+          }}
           onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
+          onPause={() => {
+            setIsPlaying(false);
+            maybeSaveProgress(true);
+          }}
         />
       )}
 
       {/* Header */}
       <div className="relative z-20 p-4 flex items-center justify-between flex-shrink-0">
         <button
-          onClick={onBack}
+          onClick={handleBack}
           className="w-12 h-12 rounded-full bg-black/20 backdrop-blur-md shadow-xl text-white flex items-center justify-center hover:bg-black/30 transition-all active:scale-95 border border-white/30"
           aria-label="Voltar"
         >
@@ -360,6 +516,55 @@ export const AudioPlayerScreen: React.FC<AudioPlayerScreenProps> = ({
               {playError}
             </div>
           )}
+
+          {trackDescription && (
+            <div className="rounded-2xl border border-white/20 bg-black/20 p-4 text-white/90 backdrop-blur-md">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/65">Sobre esta faixa</p>
+              <p className="mt-2 text-sm leading-6 line-clamp-3">{trackDescription}</p>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-white/20 bg-black/20 p-3 text-white backdrop-blur-md">
+            <div className="mb-2 px-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/65">Catálogo relacionado</p>
+              <h2 className="mt-1 text-sm font-black">Sugestões da biblioteca</h2>
+            </div>
+
+            <div className="space-y-2">
+              {relatedTracks.length === 0 && (
+                <p className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/75">
+                  Sem outras faixas relacionadas no momento.
+                </p>
+              )}
+
+              {relatedTracks.slice(0, 4).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => openRelatedTrack(item)}
+                  className="flex w-full items-center gap-3 rounded-xl border border-white/15 bg-white/5 p-2.5 text-left transition-colors hover:bg-white/10"
+                >
+                  <div
+                    className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-white/15 bg-white/10"
+                    style={item.thumbnailUrl ? {
+                      backgroundImage: `url(${item.thumbnailUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    } : undefined}
+                  >
+                    <span className="absolute bottom-1 left-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-black/65 text-white">
+                      <Icons.Play size={9} className="ml-0.5 fill-current stroke-none" />
+                    </span>
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="line-clamp-1 text-xs font-bold">{item.title}</p>
+                    <p className="text-[11px] text-white/70">{item.collectionTitle ?? 'Kaboo'}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

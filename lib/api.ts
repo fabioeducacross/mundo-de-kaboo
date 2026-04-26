@@ -1,13 +1,27 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { deleteFile } from './storage';
 import catalogSeed from '../data/catalog.seed.json';
+import { LIBRARY_HUB_MOCKS, LibraryHubKind, LibraryMockItem } from '../data/library-hubs';
 import {
   Character,
   Collection,
   CollectionResource,
   CentralMaterial,
+  MediaAccessMode,
+  MediaHub,
+  MediaHubResponse,
+  MediaItemCard,
+  MediaItemDetail,
+  MediaKind,
+  MediaPlaybackSession,
+  MediaPlaybackSource,
+  MediaProvider,
+  MediaRelatedCollection,
+  MediaShelf,
+  SaveMediaProgressInput,
   RegisterWithVoucherInput,
   RegisterWithVoucherResult,
+  ToggleMediaFavoriteResult,
   UserProfile,
   Voucher,
   VoucherRedemptionResult,
@@ -54,6 +68,7 @@ import {
   normalizeVoucherCode,
 } from './access';
 import { getActiveGrantsForUser, hasGrantForCollection } from './mockVoucherData';
+import { normalizeSingleKitBookIds } from './collectionPresentation';
 
 // Cache management for collections
 const COLLECTIONS_CACHE_KEY = 'kaboo_collections_cache';
@@ -85,6 +100,29 @@ const DEV_SUPABASE_VOUCHER_FALLBACKS: Record<string, Voucher['duration_months']>
 let userProgressTableAvailable: boolean | null = null;
 let charactersTableAvailable: boolean | null = null;
 let remoteCharactersCache: Character[] | null = null;
+let mediaTablesAvailable: boolean | null = null;
+
+type MediaItemRow = {
+  id: string;
+  hub: MediaHub;
+  media_kind: MediaKind;
+  provider: MediaProvider;
+  access_mode: MediaAccessMode;
+  title: string;
+  summary?: string | null;
+  description?: string | null;
+  status: 'draft' | 'published' | 'archived' | 'failed';
+  storage_bucket?: string | null;
+  storage_path?: string | null;
+  thumbnail_bucket?: string | null;
+  thumbnail_path?: string | null;
+  external_url?: string | null;
+  external_ref?: string | null;
+  mime_type?: string | null;
+  duration_seconds?: number | null;
+  featured_order?: number | null;
+  metadata?: Record<string, unknown> | null;
+};
 
 const cloneCharacters = (characters: Character[]): Character[] => {
   return JSON.parse(JSON.stringify(characters)) as Character[];
@@ -109,9 +147,13 @@ const PRESENTATION_SEED_COLLECTIONS_BY_ID = new Map(
 
 const hydrateCollectionPresentationFields = (collection: Collection, characters?: Character[]): Collection => {
   const seedCollection = PRESENTATION_SEED_COLLECTIONS_BY_ID.get(collection.id);
+  const normalizedKitBookIds = normalizeSingleKitBookIds(collection.kit_book_ids);
 
   if (!seedCollection) {
-    return syncCollectionCharacters(syncCollectionWithAssets(collection), characters);
+    return syncCollectionCharacters(syncCollectionWithAssets({
+      ...collection,
+      kit_book_ids: normalizedKitBookIds,
+    }), characters);
   }
 
   return syncCollectionCharacters(syncCollectionWithAssets({
@@ -119,7 +161,9 @@ const hydrateCollectionPresentationFields = (collection: Collection, characters?
     ...collection,
     collection_type: collection.collection_type ?? seedCollection.collection_type,
     kit_cover_image: collection.kit_cover_image ?? seedCollection.kit_cover_image ?? null,
-    kit_book_ids: collection.kit_book_ids ?? seedCollection.kit_book_ids ?? [],
+    kit_book_ids: normalizedKitBookIds.length > 0
+      ? normalizedKitBookIds
+      : seedCollection.kit_book_ids ?? [],
     collection_assets: (collection.collection_assets?.length ?? 0) > 0
       ? collection.collection_assets
       : seedCollection.collection_assets,
@@ -159,6 +203,278 @@ const isMissingRelationError = (error: unknown, relationName: string): boolean =
     || candidate.code === '42P01'
     || (combinedMessage.includes(relationName.toLowerCase()) && combinedMessage.includes('does not exist'))
     || (combinedMessage.includes(relationName.toLowerCase()) && combinedMessage.includes('could not find'));
+};
+
+const mapLibraryHubToMediaHub = (hub: LibraryHubKind): MediaHub => hub;
+
+const mapMockVariantToMediaKind = (item: LibraryMockItem): MediaKind => {
+  if (item.variant === 'video') {
+    return 'video';
+  }
+
+  if (item.variant === 'track') {
+    return 'audio';
+  }
+
+  if (item.variant === 'formation') {
+    return 'training';
+  }
+
+  return 'document';
+};
+
+const mapMockAssetToProvider = (item: LibraryMockItem): MediaProvider => {
+  if (item.assetType === 'audio' && item.assetUrl?.includes('youtube')) {
+    return 'youtube';
+  }
+
+  if (item.assetType === 'video' && item.assetUrl?.includes('youtube')) {
+    return 'youtube';
+  }
+
+  if (item.assetType === 'audio') {
+    return 'external_audio';
+  }
+
+  return 'internal';
+};
+
+const buildMockMediaItemCard = (hub: MediaHub, item: LibraryMockItem): MediaItemCard => ({
+  id: item.id,
+  hub,
+  kind: mapMockVariantToMediaKind(item),
+  title: item.title,
+  summary: item.meta,
+  description: item.description,
+  thumbnailUrl: item.coverImage ?? null,
+  durationSeconds: null,
+  featuredOrder: 0,
+  collectionId: item.collectionId ?? null,
+  collectionTitle: item.relatedCollection ?? null,
+  provider: mapMockAssetToProvider(item),
+  locked: false,
+  isFavorite: false,
+  progressPercent: item.progress ?? 0,
+  lastPositionSeconds: undefined,
+  badges: item.chips ?? [],
+});
+
+const buildMockMediaHubResponse = (hub: MediaHub): MediaHubResponse => {
+  const mock = LIBRARY_HUB_MOCKS[hub as LibraryHubKind];
+  const hero = buildMockMediaItemCard(hub, mock.featured);
+  const shelves: MediaShelf[] = mock.rails.map((rail) => ({
+    id: rail.id,
+    hub,
+    type: 'rail',
+    title: rail.title,
+    description: rail.description,
+    items: rail.items.map((item) => buildMockMediaItemCard(hub, item)),
+  }));
+
+  return {
+    hub,
+    hero,
+    shelves,
+    counts: {
+      total: shelves.reduce((accumulator, shelf) => accumulator + shelf.items.length, 0) + 1,
+      favorites: 0,
+      continueWatching: 0,
+    },
+  };
+};
+
+const findMockMediaItem = (mediaItemId: string): { hub: MediaHub; item: LibraryMockItem } | null => {
+  const hubs = Object.entries(LIBRARY_HUB_MOCKS) as Array<[LibraryHubKind, typeof LIBRARY_HUB_MOCKS[LibraryHubKind]]>;
+
+  for (const [hub, mock] of hubs) {
+    if (mock.featured.id === mediaItemId) {
+      return { hub: mapLibraryHubToMediaHub(hub), item: mock.featured };
+    }
+
+    for (const rail of mock.rails) {
+      const match = rail.items.find((item) => item.id === mediaItemId);
+      if (match) {
+        return { hub: mapLibraryHubToMediaHub(hub), item: match };
+      }
+    }
+  }
+
+  return null;
+};
+
+const getMediaItemResolvedUrl = (item: MediaItemRow): string | null => {
+  const metadata = item.metadata ?? {};
+  const metadataPlaybackUrl = typeof metadata.playback_url === 'string'
+    ? metadata.playback_url
+    : typeof metadata.resolved_url === 'string'
+      ? metadata.resolved_url
+      : null;
+
+  if (item.provider === 'internal') {
+    if (item.storage_bucket && item.storage_path && isSupabaseConfigured && !devMockSession) {
+      const { data } = supabase.storage
+        .from(item.storage_bucket)
+        .getPublicUrl(item.storage_path);
+
+      if (data.publicUrl) {
+        return data.publicUrl;
+      }
+    }
+
+    return metadataPlaybackUrl;
+  }
+
+  return item.external_url ?? metadataPlaybackUrl;
+};
+
+const getYouTubeVideoId = (value?: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  const shortMatch = value.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/i);
+  if (shortMatch?.[1]) {
+    return shortMatch[1];
+  }
+
+  const watchMatch = value.match(/[?&]v=([A-Za-z0-9_-]{6,})/i);
+  if (watchMatch?.[1]) {
+    return watchMatch[1];
+  }
+
+  const embedMatch = value.match(/(?:embed|shorts)\/([A-Za-z0-9_-]{6,})/i);
+  if (embedMatch?.[1]) {
+    return embedMatch[1];
+  }
+
+  return null;
+};
+
+const isDirectImageUrl = (value?: string | null): value is string => {
+  if (!value) {
+    return false;
+  }
+
+  return /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(value);
+};
+
+const getMediaItemThumbnailUrl = (item: MediaItemRow): string | null => {
+  const metadata = item.metadata ?? {};
+  const metadataThumbnail = [
+    metadata.thumbnail_url,
+    metadata.thumbnailUrl,
+    metadata.poster_url,
+    metadata.posterUrl,
+    metadata.image_url,
+    metadata.imageUrl,
+    metadata.cover_image,
+    metadata.coverImage,
+  ].find((value): value is string => typeof value === 'string' && value.length > 0) ?? null;
+
+  if (item.thumbnail_bucket && item.thumbnail_path && isSupabaseConfigured && !devMockSession) {
+    const { data } = supabase.storage
+      .from(item.thumbnail_bucket)
+      .getPublicUrl(item.thumbnail_path);
+
+    if (data.publicUrl) {
+      return data.publicUrl;
+    }
+  }
+
+  if (metadataThumbnail) {
+    return metadataThumbnail;
+  }
+
+  const youtubeVideoId = getYouTubeVideoId(item.external_url ?? item.external_ref ?? null);
+  if (youtubeVideoId) {
+    return `https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`;
+  }
+
+  if (isDirectImageUrl(item.external_url)) {
+    return item.external_url;
+  }
+
+  return null;
+};
+
+const toMediaItemCard = (
+  item: MediaItemRow,
+  options?: {
+    progressByItemId?: Record<string, { progressPercent: number; lastPositionSeconds: number }>;
+    favoriteIds?: Set<string>;
+    relatedCollections?: MediaRelatedCollection[];
+  },
+): MediaItemCard => {
+  const progress = options?.progressByItemId?.[item.id];
+  const primaryCollection = options?.relatedCollections?.[0];
+
+  return {
+    id: item.id,
+    hub: item.hub,
+    kind: item.media_kind,
+    title: item.title,
+    summary: item.summary ?? null,
+    description: item.description ?? null,
+    thumbnailUrl: getMediaItemThumbnailUrl(item),
+    durationSeconds: item.duration_seconds ?? null,
+    featuredOrder: item.featured_order ?? 0,
+    collectionId: primaryCollection?.collectionId ?? null,
+    collectionTitle: primaryCollection?.title ?? null,
+    provider: item.provider,
+    locked: false,
+    isFavorite: options?.favoriteIds?.has(item.id) ?? false,
+    progressPercent: progress?.progressPercent ?? 0,
+    lastPositionSeconds: progress?.lastPositionSeconds,
+    badges: [],
+  };
+};
+
+const getCurrentUserId = async (): Promise<string | null> => {
+  if (!isSupabaseConfigured || devMockSession) {
+    return getMockCurrentUserId();
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id ?? null;
+};
+
+const getRemoteMediaUserState = async (userId: string) => {
+  const [progressResult, favoritesResult] = await Promise.all([
+    supabase
+      .from('user_media_progress')
+      .select('media_item_id, progress_percent, last_position_seconds, last_played_at')
+      .eq('user_id', userId)
+      .order('last_played_at', { ascending: false }),
+    supabase
+      .from('user_media_favorites')
+      .select('media_item_id')
+      .eq('user_id', userId),
+  ]);
+
+  const progressByItemId: Record<string, { progressPercent: number; lastPositionSeconds: number }> = {};
+  const favoriteIds = new Set<string>();
+  const continueItemIds: string[] = [];
+
+  if (!progressResult.error) {
+    (progressResult.data || []).forEach((entry: any) => {
+      progressByItemId[entry.media_item_id] = {
+        progressPercent: entry.progress_percent ?? 0,
+        lastPositionSeconds: entry.last_position_seconds ?? 0,
+      };
+
+      if ((entry.progress_percent ?? 0) > 0 && (entry.progress_percent ?? 0) < 100) {
+        continueItemIds.push(entry.media_item_id);
+      }
+    });
+  }
+
+  if (!favoritesResult.error) {
+    (favoritesResult.data || []).forEach((entry: any) => {
+      favoriteIds.add(entry.media_item_id);
+    });
+  }
+
+  return { progressByItemId, favoriteIds, continueItemIds };
 };
 
 const loadRemoteCharacters = async (forceRefresh: boolean = false): Promise<Character[] | null> => {
@@ -857,6 +1173,327 @@ export const api = {
 
     if (error) return [];
     return data || [];
+  },
+
+  async getMediaHub(hub: MediaHub): Promise<MediaHubResponse> {
+    if (!isSupabaseConfigured || devMockSession || mediaTablesAvailable === false) {
+      return buildMockMediaHubResponse(hub);
+    }
+
+    const { data: items, error: itemsError } = await supabase
+      .from('media_items')
+      .select('*')
+      .eq('hub', hub)
+      .eq('status', 'published')
+      .order('featured_order', { ascending: true })
+      .order('published_at', { ascending: false });
+
+    if (itemsError) {
+      if (isMissingRelationError(itemsError, 'media_items')) {
+        mediaTablesAvailable = false;
+        return buildMockMediaHubResponse(hub);
+      }
+
+      logger.error('Error fetching media hub items:', itemsError);
+      return buildMockMediaHubResponse(hub);
+    }
+
+    mediaTablesAvailable = true;
+
+    const { data: shelves, error: shelvesError } = await supabase
+      .from('media_shelves')
+      .select('*')
+      .eq('hub', hub)
+      .eq('is_published', true)
+      .order('order_index', { ascending: true });
+
+    if (shelvesError && !isMissingRelationError(shelvesError, 'media_shelves')) {
+      logger.error('Error fetching media shelves:', shelvesError);
+    }
+
+    const shelfIds = (shelves || []).map((shelf: any) => shelf.id);
+    const { data: shelfItems } = shelfIds.length > 0
+      ? await supabase
+        .from('media_shelf_items')
+        .select('*')
+        .in('shelf_id', shelfIds)
+        .order('order_index', { ascending: true })
+      : { data: [] as any[] };
+
+    const currentUserId = await getCurrentUserId();
+    const { progressByItemId, favoriteIds, continueItemIds } = currentUserId
+      ? await getRemoteMediaUserState(currentUserId)
+      : { progressByItemId: {}, favoriteIds: new Set<string>(), continueItemIds: [] as string[] };
+
+    const itemRows = ((items || []) as MediaItemRow[]);
+    const itemsById = new Map(itemRows.map((item) => [item.id, item]));
+    const hero = itemRows[0] ? toMediaItemCard(itemRows[0], { progressByItemId, favoriteIds }) : null;
+
+    const mappedShelves: MediaShelf[] = (shelves || []).map((shelf: any) => {
+      const itemsForShelf = (shelfItems || [])
+        .filter((entry: any) => entry.shelf_id === shelf.id)
+        .map((entry: any) => itemsById.get(entry.media_item_id))
+        .filter(Boolean)
+        .map((item) => toMediaItemCard(item as MediaItemRow, { progressByItemId, favoriteIds }));
+
+      return {
+        id: shelf.id,
+        hub,
+        type: shelf.shelf_type,
+        title: shelf.title,
+        description: shelf.description,
+        items: itemsForShelf,
+      };
+    }).filter((shelf) => shelf.items.length > 0);
+
+    const continueItems = continueItemIds
+      .map((itemId) => itemsById.get(itemId))
+      .filter(Boolean)
+      .map((item) => toMediaItemCard(item as MediaItemRow, { progressByItemId, favoriteIds }));
+
+    const continueShelf = continueItems.length > 0
+      ? {
+        id: `${hub}-continue-watching`,
+        hub,
+        type: 'continue_watching' as const,
+        title: hub === 'music' ? 'Continue ouvindo' : 'Continue assistindo',
+        description: 'Retome de onde parou.',
+        items: continueItems,
+      }
+      : null;
+
+    const orderedShelves: MediaShelf[] = continueShelf
+      ? [continueShelf, ...mappedShelves.filter((shelf) => shelf.type !== 'continue_watching')]
+      : mappedShelves;
+
+    const fallbackShelf: MediaShelf[] = orderedShelves.length > 0
+      ? orderedShelves
+      : [{
+        id: `${hub}-all-items`,
+        hub,
+        type: 'rail',
+        title: 'Catálogo',
+        description: 'Itens publicados desta biblioteca.',
+        items: itemRows.map((item) => toMediaItemCard(item, { progressByItemId, favoriteIds })),
+      }];
+
+    return {
+      hub,
+      hero,
+      shelves: fallbackShelf,
+      counts: {
+        total: itemRows.length,
+        favorites: favoriteIds.size,
+        continueWatching: Object.values(progressByItemId).filter((entry) => entry.progressPercent > 0 && entry.progressPercent < 100).length,
+      },
+    };
+  },
+
+  async getMediaItem(mediaItemId: string): Promise<MediaItemDetail | null> {
+    if (!isSupabaseConfigured || devMockSession || mediaTablesAvailable === false) {
+      const mockMatch = findMockMediaItem(mediaItemId);
+      if (!mockMatch) {
+        return null;
+      }
+
+      const relatedCollections: MediaRelatedCollection[] = mockMatch.item.collectionId
+        ? [{
+          collectionId: mockMatch.item.collectionId,
+          title: mockMatch.item.relatedCollection ?? mockMatch.item.title,
+          linkType: 'contextual',
+        }]
+        : [];
+
+      return {
+        ...buildMockMediaItemCard(mockMatch.hub, mockMatch.item),
+        accessMode: 'active_subscription',
+        metadata: {},
+        relatedCollections,
+      };
+    }
+
+    const { data, error } = await supabase
+      .from('media_items')
+      .select('*')
+      .eq('id', mediaItemId)
+      .single();
+
+    if (error || !data) {
+      if (error && isMissingRelationError(error, 'media_items')) {
+        mediaTablesAvailable = false;
+      }
+      return null;
+    }
+
+    const { data: links } = await supabase
+      .from('media_collection_links')
+      .select('collection_id, link_type, collections(id, title)')
+      .eq('media_item_id', mediaItemId);
+
+    const relatedCollections: MediaRelatedCollection[] = ((links || []) as any[]).map((link) => ({
+      collectionId: link.collection_id,
+      title: link.collections?.title ?? 'Coleção relacionada',
+      linkType: link.link_type,
+    }));
+
+    const currentUserId = await getCurrentUserId();
+    const { progressByItemId, favoriteIds } = currentUserId
+      ? await getRemoteMediaUserState(currentUserId)
+      : { progressByItemId: {}, favoriteIds: new Set<string>(), continueItemIds: [] as string[] };
+
+    return {
+      ...toMediaItemCard(data as MediaItemRow, { progressByItemId, favoriteIds, relatedCollections }),
+      accessMode: (data as MediaItemRow).access_mode,
+      metadata: ((data as MediaItemRow).metadata ?? {}) as Record<string, unknown>,
+      relatedCollections,
+    };
+  },
+
+  async resolveMediaPlayback(mediaItemId: string): Promise<MediaPlaybackSession | null> {
+    const item = await this.getMediaItem(mediaItemId);
+    if (!item) {
+      return null;
+    }
+
+    if (!isSupabaseConfigured || devMockSession || mediaTablesAvailable === false) {
+      const mockMatch = findMockMediaItem(mediaItemId);
+      if (!mockMatch) {
+        return null;
+      }
+
+      const source: MediaPlaybackSource = {
+        url: mockMatch.item.assetUrl ?? null,
+        provider: buildMockMediaItemCard(mockMatch.hub, mockMatch.item).provider,
+        mimeType: null,
+      };
+
+      return {
+        item,
+        source,
+        canPlay: Boolean(source.url),
+      };
+    }
+
+    const { data, error } = await supabase
+      .from('media_items')
+      .select('*')
+      .eq('id', mediaItemId)
+      .single();
+
+    if (error || !data) {
+      return null;
+    }
+
+    const row = data as MediaItemRow;
+    const source: MediaPlaybackSource = {
+      url: getMediaItemResolvedUrl(row),
+      provider: row.provider,
+      mimeType: row.mime_type ?? null,
+      externalRef: row.external_ref ?? null,
+      storageBucket: row.storage_bucket ?? null,
+      storagePath: row.storage_path ?? null,
+    };
+
+    return {
+      item,
+      source,
+      canPlay: Boolean(source.url || (source.storageBucket && source.storagePath)),
+    };
+  },
+
+  async saveMediaProgress(input: SaveMediaProgressInput): Promise<{ ok: boolean; error?: string }> {
+    if (!isSupabaseConfigured || devMockSession) {
+      return { ok: true };
+    }
+
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return { ok: false, error: 'Usuário não autenticado.' };
+    }
+
+    const { error } = await supabase
+      .from('user_media_progress')
+      .upsert({
+        user_id: userId,
+        media_item_id: input.mediaItemId,
+        last_position_seconds: input.lastPositionSeconds,
+        progress_percent: input.progressPercent,
+        completed_at: input.completed ? new Date().toISOString() : null,
+        last_played_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id,media_item_id',
+      });
+
+    if (error) {
+      if (isMissingRelationError(error, 'user_media_progress')) {
+        logger.warn('user_media_progress unavailable; skipping remote progress persistence for this environment.', error);
+        return { ok: true };
+      }
+
+      logger.error('Error saving media progress:', error);
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true };
+  },
+
+  async toggleMediaFavorite(mediaItemId: string, shouldFavorite?: boolean): Promise<ToggleMediaFavoriteResult | null> {
+    if (!isSupabaseConfigured || devMockSession) {
+      return {
+        mediaItemId,
+        isFavorite: shouldFavorite ?? true,
+      };
+    }
+
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return null;
+    }
+
+    let nextFavoriteState = shouldFavorite;
+
+    if (typeof nextFavoriteState !== 'boolean') {
+      const { data } = await supabase
+        .from('user_media_favorites')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('media_item_id', mediaItemId)
+        .maybeSingle();
+
+      nextFavoriteState = !data;
+    }
+
+    if (nextFavoriteState) {
+      const { error } = await supabase
+        .from('user_media_favorites')
+        .upsert({
+          user_id: userId,
+          media_item_id: mediaItemId,
+        }, {
+          onConflict: 'user_id,media_item_id',
+        });
+
+      if (error) {
+        logger.error('Error favoriting media item:', error);
+        return null;
+      }
+    } else {
+      const { error } = await supabase
+        .from('user_media_favorites')
+        .delete()
+        .eq('user_id', userId)
+        .eq('media_item_id', mediaItemId);
+
+      if (error) {
+        logger.error('Error unfavoriting media item:', error);
+        return null;
+      }
+    }
+
+    return {
+      mediaItemId,
+      isFavorite: nextFavoriteState,
+    };
   },
 
   async getCentralMaterials(): Promise<CentralMaterial[]> {

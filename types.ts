@@ -195,6 +195,97 @@ export interface CentralMaterial {
   cta_label?: string | null;
 }
 
+export type MediaHub = 'videos' | 'music' | 'formations' | 'materials';
+
+export type MediaKind = 'video' | 'audio' | 'document' | 'training';
+
+export type MediaProvider = 'internal' | 'youtube' | 'external_audio';
+
+export type MediaAccessMode = 'active_subscription' | 'linked_collection_grant';
+
+export type MediaShelfType = 'hero' | 'rail' | 'playlist' | 'continue_watching';
+
+export interface MediaItemCard {
+  id: string;
+  hub: MediaHub;
+  kind: MediaKind;
+  title: string;
+  summary?: string | null;
+  description?: string | null;
+  thumbnailUrl?: string | null;
+  durationSeconds?: number | null;
+  featuredOrder?: number;
+  collectionId?: string | null;
+  collectionTitle?: string | null;
+  provider: MediaProvider;
+  locked: boolean;
+  isFavorite: boolean;
+  progressPercent: number;
+  lastPositionSeconds?: number;
+  badges?: string[];
+}
+
+export interface MediaRelatedCollection {
+  collectionId: string;
+  title: string;
+  linkType: 'contextual' | 'primary_source' | 'recommended_with';
+}
+
+export interface MediaItemDetail extends MediaItemCard {
+  accessMode: MediaAccessMode;
+  metadata: Record<string, unknown>;
+  relatedCollections?: MediaRelatedCollection[];
+}
+
+export interface MediaPlaybackSource {
+  url?: string | null;
+  expiresAt?: string | null;
+  mimeType?: string | null;
+  provider: MediaProvider;
+  externalRef?: string | null;
+  storageBucket?: string | null;
+  storagePath?: string | null;
+}
+
+export interface MediaPlaybackSession {
+  item: MediaItemDetail;
+  source: MediaPlaybackSource;
+  canPlay: boolean;
+}
+
+export interface MediaShelf {
+  id: string;
+  hub: MediaHub;
+  type: MediaShelfType;
+  title: string;
+  description?: string | null;
+  items: MediaItemCard[];
+}
+
+export interface MediaHubResponse {
+  hub: MediaHub;
+  hero?: MediaItemCard | null;
+  shelves: MediaShelf[];
+  counts?: {
+    total: number;
+    favorites: number;
+    continueWatching: number;
+  };
+}
+
+export interface SaveMediaProgressInput {
+  mediaItemId: string;
+  lastPositionSeconds: number;
+  progressPercent: number;
+  totalDurationSeconds?: number;
+  completed?: boolean;
+}
+
+export interface ToggleMediaFavoriteResult {
+  mediaItemId: string;
+  isFavorite: boolean;
+}
+
 // ── Voucher Models, Batches & Grants ──────────────────────
 
 export type VoucherPackageType = 'book' | 'collection' | 'kit' | 'curated_set';
@@ -287,6 +378,10 @@ export type ScreenName =
   | 'access_expired'
   | 'home'
   | 'search'
+  | 'videos'
+  | 'music'
+  | 'formations'
+  | 'materials'
   | 'profile'
   | 'my_data'
   | 'details'
@@ -300,7 +395,15 @@ export type ScreenName =
   | 'design_system'
   | 'characters';
 
-export type AdminModule = 'collections' | 'users' | 'vouchers' | 'characters';
+export type AdminModule =
+  | 'collections'
+  | 'videos'
+  | 'music'
+  | 'formations'
+  | 'materials'
+  | 'users'
+  | 'vouchers'
+  | 'characters';
 
 export interface NavState {
   currentScreen: ScreenName;

@@ -19,7 +19,14 @@ import { formatSegmentLabel, getCharacterBgColor, getCharacterColor, getCharacte
 import { lookupBncc } from '../lib/bnccLookup';
 import { lookupCasel } from '../lib/caselLookup';
 import { COLLECTION_ASSET_META, inferCollectionAssets } from '../lib/collectionAssets';
-import { getCollectionDisplayCover, getCollectionPresentationCopy, getCollectionTypeMeta } from '../lib/collectionPresentation';
+import {
+  getCollectionDisplayCover,
+  getCollectionPresentationCopy,
+  getCollectionTypeMeta,
+  getKitLinkedBookCount,
+  getVisiblePrimaryCollectionAssets,
+  shouldShowKitLinkedBooksPanel,
+} from '../lib/collectionPresentation';
 
 interface DetailsScreenProps {
   collection: Collection;
@@ -93,6 +100,17 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   const collectionTypeMeta = getCollectionTypeMeta(collection);
   const presentationCopy = getCollectionPresentationCopy(collection);
   const isKit = collectionTypeMeta.type === 'kit';
+  const collectionDisplayLabel = isKit ? 'Coleção' : collectionTypeMeta.label;
+  const collectionDetailSummary = isKit
+    ? 'Coleção com livro, mídia e materiais de apoio reunidos na mesma experiência.'
+    : collectionTypeMeta.detailSummary;
+  const collectionMaterialsDescription = isKit
+    ? 'Materiais de apoio e recursos complementares desta coleção.'
+    : presentationCopy.materialsDescription;
+  const quickActionsTitle = isKit ? 'Itens dessa coleção' : 'Itens deste livro';
+  const quickActionsDescription = isKit
+    ? 'Abra o livro e os principais materiais sem perder o contexto desta coleção.'
+    : 'Abra a leitura e os principais materiais deste livro.';
   const linkedBookIds = collection.kit_book_ids || [];
 
   // States for Offline Logic
@@ -106,12 +124,21 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   const [fileSizes, setFileSizes] = useState<Record<string, string>>({});
   const [activePedagogicalTooltip, setActivePedagogicalTooltip] = useState<PedagogicalTooltipState | null>(null);
   const fetchedSizesRef = useRef<Set<string>>(new Set());
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
 
   const collectionAssets = inferCollectionAssets(collection);
   const primaryAssets = collectionAssets.filter((asset) => asset.scope === 'primary');
-  const visiblePrimaryAssets = isKit && linkedBooks.length > 0
-    ? primaryAssets.filter((asset) => asset.category !== 'reading')
-    : primaryAssets;
+  const linkedBookCount = getKitLinkedBookCount({
+    linkedBookIdsCount: linkedBookIds.length,
+    linkedBooksCount: linkedBooks.length,
+    loadingLinkedBooks,
+  });
+  const shouldLoadLinkedBooks = isKit && linkedBookIds.length > 0;
+  const showLinkedBooksPanel = isKit && shouldShowKitLinkedBooksPanel(linkedBookCount);
+  const visiblePrimaryAssets = getVisiblePrimaryCollectionAssets(primaryAssets, showLinkedBooksPanel);
+  const primaryReadingAsset = visiblePrimaryAssets.find((asset) => asset.category === 'reading')
+    ?? primaryAssets.find((asset) => asset.category === 'reading')
+    ?? null;
   const libraryAssets = collectionAssets.filter((asset) => asset.scope === 'library');
   const hasLegacyExtraMaterials = (collection.extra_materials?.length ?? 0) > 0;
   const hasResources = libraryAssets.length > 0 || resources.length > 0 || hasLegacyExtraMaterials;
@@ -133,7 +160,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
   }, [collection.id]);
 
   useEffect(() => {
-    if (!isKit || linkedBookIds.length === 0) {
+    if (!shouldLoadLinkedBooks) {
       setLinkedBooks([]);
       setLoadingLinkedBooks(false);
       return;
@@ -169,7 +196,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [collection.id, isKit, linkedBookIds.join('|')]);
+  }, [collection.id, linkedBookIds.join('|'), shouldLoadLinkedBooks]);
 
   const handleShowExtraTools = () => {
     setShowExtraTools(true);
@@ -406,6 +433,15 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
     });
   };
 
+  const handleStandaloneReadAction = () => {
+    if (primaryReadingAsset) {
+      handlePrimaryAssetAction(primaryReadingAsset);
+      return;
+    }
+
+    onNavigate('player_book', { collectionId: collection.id });
+  };
+
   const handleBackToMain = () => {
     setShowExtraTools(false);
   };
@@ -446,6 +482,12 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
     };
   }, [activePedagogicalTooltip]);
 
+  useEffect(() => {
+    if (contentScrollRef.current) {
+      contentScrollRef.current.scrollTop = 0;
+    }
+  }, [collection.id, showExtraTools]);
+
   const activePedagogicalTooltipStyle = (() => {
     if (!activePedagogicalTooltip || typeof window === 'undefined') {
       return null;
@@ -474,6 +516,43 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
     };
   })();
 
+  const hasQuickActions = isKit && (visiblePrimaryAssets.length > 0 || hasResources);
+
+  const desktopQuickActions = (
+    <>
+      {visiblePrimaryAssets.map((asset) => {
+        const label = asset.category === 'reading' && isKit ? 'Livro' : COLLECTION_ASSET_META[asset.category].label;
+        const isReading = asset.category === 'reading';
+        const isAudio = asset.category === 'storytelling';
+
+        return (
+          <button
+            key={asset.id}
+            onClick={() => handlePrimaryAssetAction(asset)}
+            className="flex min-h-[104px] flex-col items-start justify-between gap-3 rounded-2xl border border-gray-100 bg-white/90 px-4 py-4 text-left text-gray-800 shadow-sm transition-all duration-200 hover:border-kaboo-primary/20 hover:bg-kaboo-primary/[0.04] active:scale-[0.98]"
+          >
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-kaboo-primary/[0.08] text-kaboo-primary shadow-sm ring-1 ring-kaboo-primary/10">
+              {isReading ? <Icons.BookOpen size={22} /> : isAudio ? <Icons.Headphones size={22} /> : <Icons.Video size={22} />}
+            </span>
+            <span className="text-sm font-bold leading-tight">{label}</span>
+          </button>
+        );
+      })}
+
+      {hasResources && (
+        <button
+          onClick={handleShowExtraTools}
+          className="flex min-h-[104px] flex-col items-start justify-between gap-3 rounded-2xl border border-gray-100 bg-white/90 px-4 py-4 text-left text-gray-800 shadow-sm transition-all duration-200 hover:border-kaboo-primary/20 hover:bg-kaboo-primary/[0.04] active:scale-[0.98]"
+        >
+          <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-kaboo-primary/[0.08] text-kaboo-primary shadow-sm ring-1 ring-kaboo-primary/10">
+            <Icons.Paperclip size={22} />
+          </span>
+          <span className="text-sm font-bold leading-tight">{presentationCopy.materialsTitle}</span>
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div className="flex flex-col md:flex-row bg-white relative h-full w-full">
 
@@ -481,6 +560,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
       <CollectionCoverSection
         collection={collection}
         isOffline={isOffline}
+        typeLabelOverride={collectionDisplayLabel}
         headerContent={
           <div className="flex justify-center items-center w-full">
             <span className="font-bold text-lg opacity-90 md:hidden">Detalhes</span>
@@ -489,7 +569,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
       />
 
       {/* DESKTOP: RIGHT SIDE (Content) / MOBILE: BOTTOM CARD */}
-      <div className="flex-1 overflow-y-auto z-10 no-scrollbar bg-white rounded-t-[2.5rem] md:rounded-none mt-0 relative shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:shadow-none md:h-full">
+      <div ref={contentScrollRef} className="flex-1 overflow-y-auto z-10 no-scrollbar bg-white rounded-t-[2.5rem] md:rounded-none mt-0 relative shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:shadow-none md:h-full">
         <div className="pt-9 px-6 pb-24 md:p-12 md:max-w-4xl md:mx-auto">
 
           {/* Back Button - Show when in Extra Tools view */}
@@ -508,7 +588,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
           {showExtraTools ? (
             <>
               <h1 className="text-2xl md:text-3xl font-black text-gray-800 mb-2">{presentationCopy.materialsTitle}</h1>
-              <p className="text-gray-500 mb-8">{presentationCopy.materialsDescription}</p>
+              <p className="text-gray-500 mb-8">{collectionMaterialsDescription}</p>
 
               {loadingResources ? (
                 <div className="text-center text-gray-400 py-10">Carregando materiais...</div>
@@ -580,14 +660,14 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
                     className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
                   >
                     <Icons.ChevronLeft size={20} />
-                    <span className="font-bold text-sm">Voltar ao kit</span>
+                    <span className="font-bold text-sm">Voltar à coleção</span>
                   </button>
                 </div>
               )}
 
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-4">
                 <span className={`px-3 py-1 rounded-full border text-xs font-black uppercase tracking-[0.14em] ${collectionTypeMeta.softClassName}`}>
-                  {collectionTypeMeta.label}
+                  {collectionDisplayLabel}
                 </span>
                 <span className="px-3 py-1 rounded-full bg-kaboo-primary/10 text-kaboo-primary text-xs font-bold uppercase tracking-wide">
                   {formatSegmentLabel(collection.level)}
@@ -613,24 +693,57 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
               </h1>
 
               <p className="text-sm font-medium leading-relaxed text-gray-500 mb-4 max-w-2xl">
-                {collectionTypeMeta.detailSummary}
+                {collectionDetailSummary}
               </p>
 
               {collection.synopsis && (
                 <p className="text-sm text-gray-500 mt-2 mb-4 italic">{collection.synopsis}</p>
               )}
 
-              {isKit && (
+              {!isKit && (primaryReadingAsset || collection.pdf_url) && (
+                <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+                  <button
+                    onClick={handleStandaloneReadAction}
+                    className="inline-flex min-h-12 items-center gap-3 rounded-full bg-kaboo-primary px-5 py-3 text-sm font-black uppercase tracking-[0.14em] text-white shadow-lg transition-all duration-200 hover:bg-kaboo-primary/90 active:scale-[0.98]"
+                  >
+                    <Icons.BookOpen size={18} />
+                    <span>Ler livro</span>
+                  </button>
+                  <p className="text-sm text-gray-500">Abra a leitura deste livro direto por aqui.</p>
+                </div>
+              )}
+
+              {hasQuickActions && (
+                <div className="hidden md:block mb-8">
+                  <div className="rounded-[28px] border border-kaboo-primary/10 bg-[linear-gradient(135deg,rgba(93,31,88,0.06),rgba(255,255,255,0.98))] p-5 shadow-sm">
+                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-kaboo-primary/70">{quickActionsTitle}</p>
+                        <p className="mt-1 text-sm text-gray-500">{quickActionsDescription}</p>
+                      </div>
+                      <span className="inline-flex items-center rounded-full bg-white/90 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-kaboo-primary shadow-sm ring-1 ring-kaboo-primary/10">
+                        {visiblePrimaryAssets.length + (hasResources ? 1 : 0)} itens
+                      </span>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      {desktopQuickActions}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showLinkedBooksPanel && (
                 <div className="mb-8 rounded-[28px] border border-amber-200 bg-[linear-gradient(135deg,rgba(255,251,235,1),rgba(255,247,237,1))] p-5 md:p-6 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h2 className="text-lg font-black text-gray-800">Livros do Kit</h2>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Abra um livro para ver os detalhes dentro deste mesmo modal.
+                      <h2 className="text-lg font-black text-gray-800">Livros da Coleção</h2>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Escolha um livro para ver os detalhes dentro deste mesmo modal.
                       </p>
                     </div>
-                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-white text-amber-800 text-[11px] font-black uppercase tracking-[0.12em] border border-amber-200">
-                      {linkedBooks.length || linkedBookIds.length} livro(s)
+                    <span className="inline-flex items-center rounded-full border border-amber-200 bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-amber-800">
+                      {linkedBookCount} {linkedBookCount === 1 ? 'livro' : 'livros'}
                     </span>
                   </div>
 
@@ -641,7 +754,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
                     </div>
                   ) : linkedBooks.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-amber-200 bg-white/70 px-4 py-5 text-sm text-gray-500">
-                      Este kit ainda não tem livros vinculados.
+                      Esta coleção ainda não tem livros vinculados.
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -656,7 +769,7 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
                             className="w-full rounded-2xl border border-white/80 bg-white px-4 py-3 text-left shadow-sm transition-all hover:border-kaboo-primary/30 hover:shadow-md active:scale-[0.99]"
                           >
                             <div className="flex items-center gap-4">
-                              <span className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 text-sm font-black flex items-center justify-center flex-shrink-0">
+                              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-black text-amber-800">
                                 {index + 1}
                               </span>
 
@@ -664,18 +777,18 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
                                 src={linkedBookCover}
                                 alt=""
                                 aria-hidden="true"
-                                className="w-14 h-14 rounded-2xl object-cover border border-gray-200 bg-gray-100 flex-shrink-0"
+                                className="h-14 w-14 flex-shrink-0 rounded-2xl border border-gray-200 bg-gray-100 object-cover"
                               />
 
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-black text-gray-800 line-clamp-1">{linkedBook.title}</p>
-                                <p className="text-xs text-gray-500 line-clamp-1 mt-1">
+                                <p className="line-clamp-1 text-sm font-black text-gray-800">{linkedBook.title}</p>
+                                <p className="mt-1 line-clamp-1 text-xs text-gray-500">
                                   {formatSegmentLabel(linkedBook.level)}
                                   {linkedBook.theme ? ` • ${linkedBook.theme}` : ''}
                                 </p>
                               </div>
 
-                              <div className="flex items-center gap-2 text-kaboo-primary flex-shrink-0">
+                              <div className="flex flex-shrink-0 items-center gap-2 text-kaboo-primary">
                                 <Icons.BookOpen size={18} />
                                 <Icons.ChevronRight size={18} />
                               </div>
@@ -703,36 +816,38 @@ export const DetailsScreen: React.FC<DetailsScreenProps> = ({
                 </div>
               ) : null}
 
-              <div className="flex flex-wrap gap-4 mb-10">
-                {visiblePrimaryAssets.map((asset) => {
-                  const label = COLLECTION_ASSET_META[asset.category].label;
-                  const isReading = asset.category === 'reading';
-                  const isAudio = asset.category === 'storytelling';
+              {hasQuickActions && (
+                <div className="flex flex-wrap gap-4 mb-10 md:hidden">
+                  {visiblePrimaryAssets.map((asset) => {
+                    const label = asset.category === 'reading' && isKit ? 'Livro' : COLLECTION_ASSET_META[asset.category].label;
+                    const isReading = asset.category === 'reading';
+                    const isAudio = asset.category === 'storytelling';
 
-                  return (
+                    return (
+                      <button
+                        key={asset.id}
+                        onClick={() => handlePrimaryAssetAction(asset)}
+                        className="flex h-20 min-w-[calc(50%-0.5rem)] flex-1 flex-col items-center justify-center gap-2 rounded-2xl bg-gray-100 text-gray-800 transition-all duration-200 hover:bg-gray-200 active:scale-95"
+                      >
+                        {isReading ? <Icons.BookOpen size={24} /> : isAudio ? <Icons.Headphones size={24} /> : <Icons.Video size={24} />}
+                        <span className={`leading-tight text-center font-bold ${label.length > 14 ? 'text-[10px]' : 'text-xs'}`}>
+                          {label}
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  {hasResources && (
                     <button
-                      key={asset.id}
-                      onClick={() => handlePrimaryAssetAction(asset)}
-                      className="flex flex-col items-center justify-center gap-2 h-20 flex-1 min-w-[calc(50%-0.5rem)] bg-gray-100 text-gray-800 hover:bg-gray-200 rounded-2xl transition-all duration-200 active:scale-95"
+                      onClick={handleShowExtraTools}
+                      className="flex h-20 min-w-[calc(50%-0.5rem)] flex-1 flex-col items-center justify-center gap-2 rounded-2xl bg-gray-100 text-gray-800 transition-all duration-200 hover:bg-gray-200 active:scale-95"
                     >
-                      {isReading ? <Icons.BookOpen size={24} /> : isAudio ? <Icons.Headphones size={24} /> : <Icons.Video size={24} />}
-                      <span className={`leading-tight text-center font-bold ${label.length > 14 ? 'text-[10px]' : 'text-xs'}`}>
-                        {label}
-                      </span>
+                      <Icons.Paperclip size={24} />
+                      <span className="text-xs font-bold leading-tight text-center">{presentationCopy.materialsTitle}</span>
                     </button>
-                  );
-                })}
-
-                {hasResources && (
-                  <button
-                    onClick={handleShowExtraTools}
-                    className="flex flex-col items-center justify-center gap-2 h-20 flex-1 min-w-[calc(50%-0.5rem)] bg-gray-100 text-gray-800 hover:bg-gray-200 rounded-2xl transition-all duration-200 active:scale-95"
-                  >
-                    <Icons.Paperclip size={24} />
-                    <span className="text-xs font-bold leading-tight text-center">{presentationCopy.materialsTitle}</span>
-                  </button>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {/* --- PEDAGOGICAL INFORMATION SECTION --- */}
               {(collection.theme || collection.learning_objectives || collection.characters || collection.bncc_skills || collection.casel_competencies || collection.age_grade) && (

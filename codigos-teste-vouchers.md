@@ -16,6 +16,7 @@ Fonte principal: `supabase/seed.vouchers.sql`
 | Codigo | Duracao | Situacao esperada | Observacao |
 | --- | --- | --- | --- |
 | KABOO-LIVR-0001 | 3 meses | Ativo | Voucher previsivel para fluxo de livro avulso no mock local |
+| KABOO-TEST-0001 | 3 meses | Ativo | Voucher previsivel para testes manuais de QA/homologacao |
 | KABOO-3MESES-2026 | 3 meses | Ativo | Disponivel para resgate |
 | KABOO-6MESES-2026 | 6 meses | Ativo | Disponivel para resgate |
 | KABOO-9MESES-2026 | 9 meses | Ativo | Disponivel para resgate |

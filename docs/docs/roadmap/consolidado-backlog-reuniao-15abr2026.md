@@ -82,6 +82,24 @@
 
 ---
 
+## 1B. Novo direcionamento CEO — 24/04/2026
+
+> **Direção nova de produto: menu por bibliotecas + mapeamento opcional**
+
+| Novo ponto | Tipo | Consolidação |
+|:---|:---:|:---|
+| Menu principal por bibliotecas (`Livros`, `Vídeos`, `Músicas`, `Formações`, `Materiais`) | DELTA-US-004 | Reorganiza a navegação e separa experiência editorial de bibliotecas gerais |
+| Biblioteca geral de `Vídeos` | DELTA-US-005 | Passa a existir como área própria, não apenas como mídia vinculada a coleção |
+| Biblioteca geral de `Músicas` | DELTA-US-006 | Passa a existir como área própria, com descoberta leve e curadoria simples |
+| `Formações` como superfície própria | DELTA-US-007 | Entra no menu desde já, com evolução posterior para trilhas/aprendizagem guiada |
+| `Materiais` como biblioteca geral enxuta | DELTA-US-008 | Deixa de depender apenas da coleção e prioriza navegação simples |
+| Relacionamento opcional com livro ou kit | DELTA-US-009 | Mapeamento deixa de ser obrigatório e só aparece quando fizer sentido editorial |
+| Descoberta simples nas áreas gerais | DELTA-AS-001 | `Vídeos`, `Músicas` e `Materiais` não herdam a complexidade de filtros da área de `Livros` |
+
+**Impacto de posicionamento:** o produto deixa de ser apenas uma vitrine de coleções com mídias vinculadas e passa a prever quatro bibliotecas gerais além da área de `Livros`.
+
+---
+
 ## 2. Matriz de Status (Analyst) — Atualizada 18/04/2026
 
 | Status | Qtd | IDs |
@@ -111,6 +129,13 @@
 
 **Ordem**: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
+### Repriorização CEO — 24/04/2026
+
+- **Fase 1** permanece intacta como baseline já entregue, incluindo vouchers, kits 1:1, busca e documentação da vitrine atual.
+- **Fase 2** passa a priorizar a navegação por bibliotecas e as áreas gerais de `Vídeos`, `Músicas`, `Materiais` e a entrada simples de `Formações`.
+- **Fase 3** passa a cobrir modelagem, CMS e backend dessas bibliotecas gerais, com relacionamento opcional a livro ou kit.
+- **Fase 4** preserva a evolução de `Formações` para trilhas guiadas e academia leve, sem antecipar esse escopo para o curto prazo.
+
 ---
 
 ## 4. UX: Componentes Novos Necessários
@@ -132,7 +157,7 @@
 | Documento | Agente | Conteúdo |
 |---|---|---|
 | [backlog-central-coruja-15abr2026.md](backlog-central-coruja-15abr2026.md) | PO (Pax) | 35 user stories + 6 anti-stories + 4 arch requirements |
-| [ux-report-reuniao-15abr2026.md](ux-report-reuniao-15abr2026.md) | UX (Uma) | 6 telas impactadas, 7 componentes, 4 fluxos, 3 riscos UX |
+| ux-report-reuniao-15abr2026.md | UX (Uma) | 6 telas impactadas, 7 componentes, 4 fluxos, 3 riscos UX |
 | [roadmap-central-coruja-v1.2.md](roadmap-central-coruja-v1.2.md) | PM (Bob) | 4 fases, sprints detalhadas, métricas, riscos |
 | *(inline acima)* | Analyst (Atlas) | 25 requisitos × status × esforço × prioridade |
 

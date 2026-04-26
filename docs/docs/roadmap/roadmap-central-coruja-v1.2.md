@@ -44,6 +44,22 @@ A Central Coruja é um **"Netflix de conteúdo extra, só consumível"**: comple
 - Quando há apenas filtros ativos, sem texto de busca, o estado final passou a mostrar diretamente a grade filtrada com a chip ativa, sem card flutuante de resultados sobreposto.
 - Build e QA manual/browser foram refeitos após esse ajuste final, mantendo `v1.2 local demonstrável` em 100%.
 
+### Atualização local — 23/04/2026
+
+- O voucher previsível `KABOO-TEST-0001` foi versionado em mock, seed, documentação operacional e migration idempotente para homologação remota.
+- A regra operacional de 1 livro por kit foi consolidada em `catalog.seed.json`, na normalização local, na hidratação remota, no CMS/admin com seleção única e em uma migration corretiva para dados já existentes.
+- O modal público dos kits passou a tratar 0 ou 1 vínculo como experiência direta do próprio kit, mantendo `Leitura` e `Materiais da Coleção`; `Livros do Kit` e `Voltar ao kit` ficam reservados ao cenário multi-livro.
+- A regra de apresentação dos kits foi centralizada em `lib/collectionPresentation.ts`, coberta por testes unitários e revalidada com build de produção e smoke visual no navegador.
+
+### Direcionamento CEO — 24/04/2026
+
+- O menu alvo passa a ser: `Livros` (com `Coleções` e `Suporte`), `Vídeos`, `Músicas`, `Formações` e `Materiais`.
+- `Vídeos` deixa de ser apenas mídia derivada de livros e kits e passa a representar uma biblioteca geral curada, no formato de um mini YouTube privado.
+- `Músicas` passa a existir como biblioteca geral própria, com descoberta simples, no formato de um mini Spotify enxuto.
+- `Materiais` passa a ser uma área geral de consulta direta, com poucos filtros e sem exigir vínculo com coleção para existir.
+- O relacionamento com livro ou kit vira opcional: quando houver vínculo real, ele aparece como contexto; quando não houver, o conteúdo continua acessível como biblioteca geral.
+- `Formações` entra no menu como superfície própria desde já, mas a evolução para trilhas guiadas e academia leve continua faseada.
+
 ---
 
 ## Fase 1 — Sprint Atual (v1.2-alpha) — "Polimento de vitrine"
@@ -60,7 +76,7 @@ A Central Coruja é um **"Netflix de conteúdo extra, só consumível"**: comple
 | 3 | **Tooltip BNCC no detalhe** (hover mostra descrição rica) | M | Item 2 | Ao hover/tap no código BNCC, tooltip exibe campo de conhecimento, componente e descrição. Mobile: tap abre popover. Acessível (aria-describedby). |
 | 4 | **JSON estático CASEL** (competências → descrições) | P | Nenhuma | Arquivo `data/casel-lookup.json` com as 5 competências CASEL + sub-skills. |
 | 5 | **Tooltip descritivo para outros mapeamentos** (CASEL, ODS, etc.) | M | Item 4 | Mesma UX do tooltip BNCC para todos os chips de mapeamento no detalhe. |
-| 6 | **Distinção kit vs livro na vitrine** | M | Dados mock (item 13) | Campo `collection_type: 'kit' \| 'book'` no seed. Card da home exibe badge visual diferenciador. Modal de coleção mostra composição do kit quando aplicável. |
+| 6 | **Distinção kit vs livro na vitrine** | M | Dados mock (item 13) | Campo `collection_type: 'kit' \| 'book'` no seed. Card da home exibe badge visual diferenciador. Modal de coleção só expõe drill-down de composição quando houver mais de um livro vinculado; em kits 0 ou 1 vínculo, leitura e materiais permanecem no próprio kit. |
 | 7 | **Merge branch invite-flow → v1.2** | P | Finalização do invite flow | Branch `feature/invite-flow` merged em `v1.2`. Sem conflitos. Build passa. |
 
 **Ordem de execução recomendada**: 7 → 2 → 4 → 1 → 3 → 5 → 6
@@ -75,29 +91,33 @@ A Central Coruja é um **"Netflix de conteúdo extra, só consumível"**: comple
 
 ---
 
-## Fase 2 — Próxima Sprint (v1.2-beta) — "Descoberta e novos recursos"
+## Fase 2 — Próxima Sprint (v1.2-beta) — "Bibliotecas e Navegação"
 
-**Objetivo**: implementar filtros unificados e os novos campos de conteúdo audiovisual. Completar a experiência de "vitrine Netflix".
+**Objetivo**: introduzir a nova navegação principal e as bibliotecas gerais de `Vídeos`, `Músicas`, `Formações` e `Materiais`, mantendo `Livros` como a área de descoberta editorial mais rica.
 
 **Duração estimada**: 2 semanas (03/05 → 16/05)  
 **Responsável principal**: Fabio
 
 | # | Item | Tam. | Dependência | Critério de done |
 |---|------|------|-------------|------------------|
-| 4h | **Filtro rápido por ano escolar na home** | M | Plano de busca/filtros (session plan) | Chip de ano escolar funcional na home. Filtra catálogo por metadado de faixa etária/série. Persiste ao voltar de coleção. |
+| NAV | **Navegação lateral por bibliotecas** | M | Mock do menu aprovado | Menu passa a expor `Livros` com `Coleções` e `Suporte`, além de `Vídeos`, `Músicas`, `Formações` e `Materiais`, com navegação consistente em desktop e mobile. |
+| BF | **Busca rica restrita à área de Livros** | M | Plano de busca/filtros já aprovado | A busca avançada, chips e filtros detalhados continuam centrados em `Livros`; as áreas gerais usam descoberta mais enxuta. |
+| 4h | **Filtro rápido por ano escolar na home** | M | Plano de busca/filtros (session plan) | Chip de ano escolar funcional dentro da área de `Livros`. Filtra catálogo por metadado de faixa etária/série e persiste ao voltar de coleção. |
+| VID | **Biblioteca geral de Vídeos** | G | Curadoria inicial definida | Nova área de `Vídeos` no formato de mini YouTube privado, com cards, destaques e busca leve. |
+| MUS | **Biblioteca geral de Músicas** | G | Curadoria inicial definida | Nova área de `Músicas` no formato de mini Spotify simples, com descoberta leve e organização básica. |
+| MAT | **Biblioteca geral de Materiais** | M | Curadoria mínima definida | Área de `Materiais` com navegação direta, poucos filtros e sem exigir vínculo com coleção para existir. |
+| FOR | **Entrada simples de Formações** | M | Diretriz de produto aprovada | `Formações` entra como superfície própria no menu, com página inicial simples e sem ainda entregar trilhas completas. |
 | 8 | **Grid adaptativo para 4-6 botões no detalhe** | M | Nenhuma | Grid responsivo no detalhe da coleção comporta até 6 botões de recurso sem quebra de layout. Testado em 320px, 375px, 768px e 1024px. |
-| 6v | **Botão + campo para vídeo acessível (Libras)** | M | Nenhuma (frontend puro, campo mock) | Botão "Assistir Acessível" aparece no detalhe quando `accessible_video_url` existe. Player embarcado ou link externo. Campo no mock/seed. |
-| 7v | **Botão + campo para vídeo animado (IA)** | M | Nenhuma (frontend puro, campo mock) | Botão "Desenho Animado" aparece no detalhe quando `animated_video_url` existe. Mesma UX do vídeo acessível. |
-| 9 | **Área de materiais genéricos** (nível Central/coleção) | G | Decisão de produto sobre modelo de dados | Seção "Materiais" visível na home ou no detalhe da coleção. Aceita PDFs/links genéricos não atrelados a um recurso específico. Mock com 2-3 materiais de exemplo. |
-| BF | **Busca + filtros unificados na home (plano completo)** | G | Session plan já aprovado | Barra de busca + chips rápidos + sheet avançado na HomeScreen. SearchScreen vira alias. Persistência de estado ao navegar. |
+| 6v | **Conteúdo de vídeo contextual ao livro/kit** | M | Nenhuma (frontend puro, campo mock) | Botões como `Assistir Acessível` continuam aparecendo no detalhe apenas quando houver relação real com o livro ou kit. |
+| 7v | **Conteúdo animado contextual ao livro/kit** | M | Nenhuma (frontend puro, campo mock) | Conteúdo animado contextual continua disponível no detalhe quando houver vínculo real com o conteúdo editorial. |
 
-**Ordem de execução recomendada**: BF → 4h → 8 → 6v → 7v → 9
+**Ordem de execução recomendada**: NAV → BF → 4h → MAT → VID → MUS → FOR → 8 → 6v → 7v
 
 ---
 
-## Fase 3 — Backlog Curto Prazo (v1.2-rc → v1.3) — "Produção e backend"
+## Fase 3 — Backlog Curto Prazo (v1.2-rc → v1.3) — "Modelagem e Catálogo"
 
-**Objetivo**: validar o backend real, implementar campos no Supabase e preparar para publicação nas lojas.
+**Objetivo**: validar o backend real e modelar as novas bibliotecas gerais, deixando explícito que o vínculo com livro ou kit é opcional e só aparece quando fizer sentido editorial.
 
 **Duração estimada**: 3-4 semanas (17/05 → 13/06)  
 **Responsáveis**: Fabio (frontend-backend integration), Maxwell (infra), Mario (validação)
@@ -105,10 +125,12 @@ A Central Coruja é um **"Netflix de conteúdo extra, só consumível"**: comple
 | # | Item | Tam. | Responsável | Dependência |
 |---|------|------|-------------|-------------|
 | 14 | **Tabela BNCC no Supabase** (migrar JSON para banco) | M | Fabio | Supabase remoto validado |
-| 15 | **Campo `accessible_video_url` na collection** | P | Fabio | Migration Supabase |
-| 16 | **Campo `animated_video_url` na collection** | P | Fabio | Migration Supabase |
-| 17 | **Campo `collection_type` na collection** | P | Fabio | Migration Supabase |
-| 18 | **Materiais genéricos como entidade separada** | M | Fabio | Decisão de modelagem |
+| 15 | **Campos de vídeo contextual ao livro/kit** (`accessible_video_url`, `animated_video_url`) | P | Fabio | Migration Supabase |
+| 16 | **Biblioteca geral de Vídeos no backend/CMS** | G | Fabio | Modelagem aprovada para catálogo geral |
+| 17 | **Biblioteca geral de Músicas no backend/CMS** | G | Fabio | Modelagem aprovada para catálogo geral |
+| 18 | **Biblioteca geral de Materiais no backend/CMS** | M | Fabio | Decisão de curadoria e metadados mínimos |
+| REL | **Relacionamento opcional com livro ou kit** | M | Fabio | Definir esquema que permita vínculo opcional sem obrigar mapeamento rígido |
+| FOR | **Catálogo simples de Formações** | M | Fabio + Mario | Curadoria inicial aprovada |
 | 10 | **Campo CPF opcional no cadastro** | M | Fabio | Validação jurídica (ECA digital) |
 | 19 | **Assinatura digital pós-voucher** | G | Fabio + Mario | Definição de fluxo de UX |
 | 22 | **Servidor/banco separado para Central Coruja** | G | Maxwell | Conta Empatia definida |
@@ -119,11 +141,11 @@ A Central Coruja é um **"Netflix de conteúdo extra, só consumível"**: comple
 
 ## Fase 4 — Backlog Longo Prazo (v2.0+) — "Expansão"
 
-**Objetivo**: funcionalidades de segundo passo que ampliam o público e a proposta de valor.
+**Objetivo**: evoluir as novas bibliotecas gerais para experiências guiadas, curadoria mais rica e progressão leve.
 
 | # | Item | Tam. | Responsável | Pré-condição |
 |---|------|------|-------------|--------------|
-| 23 | **Academia/formação** (módulo novo) | XG | Fabio + Mario | v1.3 estável, conteúdo de formação produzido |
+| 23 | **Formações leves → trilhas guiadas / academia enxuta** | XG | Fabio + Mario | v1.3 estável, conteúdo de formação produzido e catálogo simples já disponível |
 | 24 | **Gamificação adulto** (metas, progresso, conquistas) | G | Fabio | v1.3 estável, design de mecânicas aprovado |
 | 25 | **Perfil infantil** (cadastro criança, interface infantil) | G | Fabio | Validação jurídica ECA, design infantil |
 | 26 | **Login com Educa Cross (OAuth)** | M | Fabio + Maxwell | API de OAuth do Educa Cross disponível |
@@ -138,6 +160,8 @@ A Central Coruja é um **"Netflix de conteúdo extra, só consumível"**: comple
 - [x] Labels de abas renomeados
 - [x] Tooltips BNCC e CASEL funcionando com dados estáticos
 - [x] Distinção kit vs livro visível na vitrine
+- [x] Voucher previsível de QA versionado para mock, seed e homologação remota
+- [x] Regra 1 livro por kit validada no seed, no CMS/admin, na hidratação remota e no modal público
 - [x] Busca + filtros unificados na home
 - [x] Botões de vídeo acessível e animado presentes no detalhe
 - [x] Grid adaptativo para 4-6 recursos

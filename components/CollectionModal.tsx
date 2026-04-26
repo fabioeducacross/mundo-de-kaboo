@@ -3,10 +3,12 @@ import { Icons } from './Icons';
 import { Collection, ScreenName } from '../types';
 import { DetailsScreen } from '../screens/DetailsScreen';
 import { ModalSkeleton } from './ModalSkeleton';
+import { api } from '../lib/api';
 
 interface CollectionModalProps {
   collection: Collection | null;
   isOpen: boolean;
+  initialStackIds?: string[];
   onClose: () => void;
   onNavigate: (screen: ScreenName, params?: any) => void;
 }
@@ -14,6 +16,7 @@ interface CollectionModalProps {
 export const CollectionModal: React.FC<CollectionModalProps> = ({
   collection,
   isOpen,
+  initialStackIds,
   onClose,
   onNavigate
 }) => {
@@ -30,15 +33,55 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
   // Reset state and manage body scroll when modal opens/closes
   // NOTE: onClose intentionally excluded from deps — use onCloseRef instead
   useEffect(() => {
+    let isCancelled = false;
+
     if (isOpen && collection) {
+      const normalizedStackIds = Array.isArray(initialStackIds) && initialStackIds.length > 0
+        ? initialStackIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
+        : [collection.id];
+
+      const orderedStackIds = [
+        collection.id,
+        ...normalizedStackIds.filter((id) => id !== collection.id),
+      ];
+      const extraCollectionIds = orderedStackIds.slice(1);
+
       setCollectionStack([collection]);
-      return;
+
+      if (extraCollectionIds.length === 0) {
+        return () => {
+          isCancelled = true;
+        };
+      }
+
+      Promise.all(extraCollectionIds.map(async (id) => {
+        try {
+          return await api.getCollectionById(id);
+        } catch {
+          return null;
+        }
+      })).then((resolvedCollections) => {
+        if (isCancelled) {
+          return;
+        }
+
+        const nextStack = [
+          collection,
+          ...resolvedCollections.filter((item): item is Collection => Boolean(item)),
+        ];
+
+        setCollectionStack(nextStack);
+      });
+
+      return () => {
+        isCancelled = true;
+      };
     }
 
     if (!isOpen) {
       setCollectionStack([]);
     }
-  }, [isOpen, collection?.id]);
+  }, [isOpen, collection?.id, initialStackIds?.join('|')]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -64,21 +107,32 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
 
   // Handle smooth transition from skeleton to content
   useEffect(() => {
-    if (activeCollection) {
-      // Small delay to ensure smooth transition
-      const timer = setTimeout(() => {
-        setShowSkeleton(false);
-        // Show content after skeleton starts fading
-        setTimeout(() => {
-          setShowContent(true);
-        }, 100);
-      }, 50);
-      return () => clearTimeout(timer);
-    } else {
+    if (!isOpen) {
       setShowContent(false);
       setShowSkeleton(true);
+      return;
     }
-  }, [activeCollection?.id]);
+
+    if (!activeCollection) {
+      setShowContent(false);
+      setShowSkeleton(true);
+      return;
+    }
+
+    // Small delay to ensure smooth transition each time the modal reopens.
+    const skeletonTimer = window.setTimeout(() => {
+      setShowSkeleton(false);
+    }, 50);
+
+    const contentTimer = window.setTimeout(() => {
+      setShowContent(true);
+    }, 150);
+
+    return () => {
+      window.clearTimeout(skeletonTimer);
+      window.clearTimeout(contentTimer);
+    };
+  }, [isOpen, activeCollection?.id]);
 
   if (!isOpen) return null;
 
@@ -125,7 +179,14 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
                   if (['player_book', 'player_audio', 'player_video'].includes(screen)) {
                     onClose();
                   }
-                  onNavigate(screen, params);
+                  onNavigate(screen, ['player_book', 'player_audio', 'player_video'].includes(screen)
+                    ? {
+                      ...params,
+                      returnToModal: {
+                        stackIds: collectionStack.map((item) => item.id),
+                      },
+                    }
+                    : params);
                 }}
                 onBack={() => {
                   if (collectionStack.length > 1) {
