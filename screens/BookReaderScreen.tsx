@@ -351,7 +351,7 @@ export const BookReaderScreen: React.FC<BookReaderScreenProps> = ({ collection, 
 
       {/* Book Container - Full screen centered for mobile landscape */}
       <div
-        className={`${isMobileLandscape ? 'fixed inset-0 flex items-center justify-center z-10' : 'flex-1 relative z-10 overflow-hidden'} ${showOrientationPrompt ? 'pointer-events-none opacity-0' : ''}`} 
+        className={`${isMobileLandscape ? 'fixed inset-0 flex items-center justify-center z-10' : 'flex-1 flex flex-col z-10 overflow-hidden'} ${showOrientationPrompt ? 'pointer-events-none opacity-0' : ''}`}
         style={isMobileLandscape ? { minHeight: 0 } : { minHeight: 0 }}
       >
         {error ? (
@@ -372,125 +372,133 @@ export const BookReaderScreen: React.FC<BookReaderScreenProps> = ({ collection, 
           </div>
         ) : (
           <>
-            <FlipbookViewer
-              ref={flipbookRef}
-              pdfUrl={pdfUrl}
-              className="h-full w-full"
-              themeColor={themeColor}
-              onLoadSuccess={() => {
-                setIsLoading(false);
-                setError(null);
-              }}
-              onLoadError={(err: any) => {
-                setIsLoading(false);
-                setError(`Erro ao carregar PDF: ${err?.message || 'Erro desconhecido'}`);
-              }}
-              onPageChange={(currentPage, totalPages) => {
-                setCurrentPage(currentPage);
-                setTotalPages(totalPages);
-                localStorage.setItem(readingKey, String(currentPage));
-              }}
-            />
+            {/* audio element (non-visual) */}
             {audioUrl && (
-              <>
-                <audio
-                  ref={audioRef}
-                  src={audioUrl}
-                  onLoadedMetadata={(e) => setAudioDuration(e.currentTarget.duration)}
-                  onTimeUpdate={(e) => setAudioCurrentTime(e.currentTarget.currentTime)}
-                  onEnded={() => setIsAudioPlaying(false)}
-                />
-                {isPlayerExpanded ? (
-                  /* Expanded: classic 2-row player footer */
-                  <div className="absolute bottom-0 left-0 right-0 z-20 border-t border-white/10 bg-black/70 px-4 py-3 backdrop-blur-md">
-                    <div className="flex items-center gap-3">
-                      {/* Play/pause — centered across both rows */}
-                      <button
-                        onClick={toggleAudio}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white shadow-md transition-colors hover:bg-white/90 active:scale-95"
-                        style={{ color: themeColor }}
-                        aria-label={isAudioPlaying ? 'Pausar narração' : 'Ouvir narração'}
-                      >
-                        {isAudioPlaying
-                          ? <Icons.Pause size={18} className="fill-current stroke-none" />
-                          : <Icons.Play size={18} className="fill-current stroke-none ml-0.5" />}
-                      </button>
-                      {/* Content: row 1 = title + time, row 2 = seekbar */}
-                      <div className="flex min-w-0 flex-1 flex-col gap-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <span className="truncate text-[12px] font-semibold text-white/90">{audioTitle}</span>
-                            <span className="shrink-0 rounded-full bg-violet-500/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-violet-200">narração</span>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-3">
-                            <span className="font-mono text-[11px] text-white/50">{formatAudioTime(audioCurrentTime)} / {formatAudioTime(audioDuration)}</span>
-                            <button
-                              onClick={() => setIsPlayerExpanded(false)}
-                              className="text-[10px] text-white/30 transition-colors hover:text-white/60"
-                              aria-label="Recolher player"
-                            >
-                              recolher ↑
-                            </button>
-                          </div>
-                        </div>
-                        {/* Seekbar row */}
-                        <div
-                          className="relative h-2 cursor-pointer rounded-full bg-white/20"
-                          onClick={(e) => {
-                            if (!audioRef.current || !audioDuration) return;
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * audioDuration;
-                          }}
+              <audio
+                ref={audioRef}
+                src={audioUrl}
+                onLoadedMetadata={(e) => setAudioDuration(e.currentTarget.duration)}
+                onTimeUpdate={(e) => setAudioCurrentTime(e.currentTarget.currentTime)}
+                onEnded={() => setIsAudioPlaying(false)}
+              />
+            )}
+
+            {/* Flipbook area — flex-1 so expanded player pushes it up instead of overlapping */}
+            <div className={isMobileLandscape ? 'relative w-full h-full' : 'relative flex-1 min-h-0 overflow-hidden'}>
+              <FlipbookViewer
+                ref={flipbookRef}
+                pdfUrl={pdfUrl}
+                className="h-full w-full"
+                themeColor={themeColor}
+                onLoadSuccess={() => {
+                  setIsLoading(false);
+                  setError(null);
+                }}
+                onLoadError={(err: any) => {
+                  setIsLoading(false);
+                  setError(`Erro ao carregar PDF: ${err?.message || 'Erro desconhecido'}`);
+                }}
+                onPageChange={(currentPage, totalPages) => {
+                  setCurrentPage(currentPage);
+                  setTotalPages(totalPages);
+                  localStorage.setItem(readingKey, String(currentPage));
+                }}
+              />
+
+              {/* Collapsed pill — stays overlaying the book corner */}
+              {audioUrl && !isPlayerExpanded && (
+                <button
+                  onClick={() => setIsPlayerExpanded(true)}
+                  className="absolute bottom-4 right-4 z-20 flex items-center gap-2 rounded-full border border-white/20 bg-black/60 py-2 pl-2 pr-3 shadow-lg backdrop-blur-md transition-all hover:bg-black/70 active:scale-95"
+                  aria-label="Abrir player de narração"
+                >
+                  <div
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white transition-all ${isAudioPlaying ? 'ring-2 ring-white/40 ring-offset-1 ring-offset-black/60' : ''}`}
+                    style={{ color: themeColor }}
+                  >
+                    {isAudioPlaying
+                      ? <Icons.Pause size={11} className="fill-current stroke-none" />
+                      : <Icons.Play size={11} className="fill-current stroke-none ml-0.5" />}
+                  </div>
+                  <span className="text-[11px] font-semibold text-white/80">Narração</span>
+                </button>
+              )}
+
+              {/* Page nav buttons */}
+              {!isMobileLandscape && !showOrientationPrompt && (
+                <>
+                  <button
+                    onClick={flipPrev}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-14 h-14 rounded-full bg-black/20 backdrop-blur-md shadow-xl flex items-center justify-center text-white border border-white/30 transition-all active:scale-95 hover:bg-black/30 hover:scale-110"
+                    aria-label="Página anterior"
+                  >
+                    <Icons.ChevronLeft size={28} strokeWidth={2.5} />
+                  </button>
+                  <button
+                    onClick={flipNext}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-14 h-14 rounded-full bg-black/20 backdrop-blur-md shadow-xl flex items-center justify-center text-white border border-white/30 transition-all active:scale-95 hover:bg-black/30 hover:scale-110"
+                    aria-label="Próxima página"
+                  >
+                    <Icons.ChevronLeft size={28} className="rotate-180" strokeWidth={2.5} />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Expanded player — sits BELOW the flipbook area, not on top of it */}
+            {audioUrl && isPlayerExpanded && (
+              <div className={`${isMobileLandscape ? 'absolute bottom-0 left-0 right-0' : 'flex-shrink-0'} z-20 border-t border-white/10 bg-black/70 px-4 py-3 backdrop-blur-md`}>
+                <div className="flex items-center gap-3">
+                  {/* Play/pause */}
+                  <button
+                    onClick={toggleAudio}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white shadow-md transition-colors hover:bg-white/90 active:scale-95"
+                    style={{ color: themeColor }}
+                    aria-label={isAudioPlaying ? 'Pausar narração' : 'Ouvir narração'}
+                  >
+                    {isAudioPlaying
+                      ? <Icons.Pause size={18} className="fill-current stroke-none" />
+                      : <Icons.Play size={18} className="fill-current stroke-none ml-0.5" />}
+                  </button>
+                  {/* Content: row 1 = title + time, row 2 = seekbar */}
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-[12px] font-semibold text-white/90">{audioTitle}</span>
+                        <span className="shrink-0 rounded-full bg-violet-500/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-violet-200">narração</span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <span className="font-mono text-[11px] text-white/50">{formatAudioTime(audioCurrentTime)} / {formatAudioTime(audioDuration)}</span>
+                        <button
+                          onClick={() => setIsPlayerExpanded(false)}
+                          className="text-[10px] text-white/30 transition-colors hover:text-white/60"
+                          aria-label="Recolher player"
                         >
-                          <div
-                            className="absolute inset-y-0 left-0 rounded-full bg-white/80"
-                            style={{ width: audioDuration ? `${(audioCurrentTime / audioDuration) * 100}%` : '0%' }}
-                          />
-                          <div
-                            className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-white shadow"
-                            style={{ left: audioDuration ? `calc(${(audioCurrentTime / audioDuration) * 100}% - 7px)` : '-7px' }}
-                          />
-                        </div>
+                          recolher ↑
+                        </button>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  /* Collapsed: floating pill bottom-right */
-                  <button
-                    onClick={() => setIsPlayerExpanded(true)}
-                    className="absolute bottom-4 right-4 z-20 flex items-center gap-2 rounded-full border border-white/20 bg-black/60 py-2 pl-2 pr-3 shadow-lg backdrop-blur-md transition-all hover:bg-black/70 active:scale-95"
-                    aria-label="Abrir player de narração"
-                  >
+                    {/* Seekbar */}
                     <div
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white transition-all ${isAudioPlaying ? 'ring-2 ring-white/40 ring-offset-1 ring-offset-black/60' : ''}`}
-                      style={{ color: themeColor }}
+                      className="relative h-2 cursor-pointer rounded-full bg-white/20"
+                      onClick={(e) => {
+                        if (!audioRef.current || !audioDuration) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * audioDuration;
+                      }}
                     >
-                      {isAudioPlaying
-                        ? <Icons.Pause size={11} className="fill-current stroke-none" />
-                        : <Icons.Play size={11} className="fill-current stroke-none ml-0.5" />}
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-full bg-white/80"
+                        style={{ width: audioDuration ? `${(audioCurrentTime / audioDuration) * 100}%` : '0%' }}
+                      />
+                      <div
+                        className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-white shadow"
+                        style={{ left: audioDuration ? `calc(${(audioCurrentTime / audioDuration) * 100}% - 7px)` : '-7px' }}
+                      />
                     </div>
-                    <span className="text-[11px] font-semibold text-white/80">Narração</span>
-                  </button>
-                )}
-              </>
-            )}
-            {!isMobileLandscape && !showOrientationPrompt && (
-              <>
-                <button
-                  onClick={flipPrev}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-14 h-14 rounded-full bg-black/20 backdrop-blur-md shadow-xl flex items-center justify-center text-white border border-white/30 transition-all active:scale-95 hover:bg-black/30 hover:scale-110"
-                  aria-label="Página anterior"
-                >
-                  <Icons.ChevronLeft size={28} strokeWidth={2.5} />
-                </button>
-                <button
-                  onClick={flipNext}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-14 h-14 rounded-full bg-black/20 backdrop-blur-md shadow-xl flex items-center justify-center text-white border border-white/30 transition-all active:scale-95 hover:bg-black/30 hover:scale-110"
-                  aria-label="Próxima página"
-                >
-                  <Icons.ChevronLeft size={28} className="rotate-180" strokeWidth={2.5} />
-                </button>
-              </>
+                  </div>
+                </div>
+              </div>
             )}
           </>
         )}
